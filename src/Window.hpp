@@ -7,8 +7,10 @@ namespace VulkanRenderer
 	{
 	public:
 		void InitWindow();
+		void Shutdown();
 
+		GLFWwindow* GetHandle();
 	private:
-		GLFWwindow* window;
+		GLFWwindow* mWindow;
 	};
 }
