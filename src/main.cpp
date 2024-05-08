@@ -12,7 +12,7 @@ int main()
 	VulkanRenderer::Window window;
     VulkanRenderer::Renderer renderer;
     window.InitWindow();
-    renderer.InitVulkan();
+    renderer.InitVulkan(&window);
 
     while (!glfwWindowShouldClose(window.GetHandle())) {
         glfwPollEvents();
