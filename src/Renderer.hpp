@@ -14,6 +14,12 @@ namespace VulkanRenderer
 			return graphicsFamily.has_value() && presentFamily.has_value();
 		}
 	};
+	struct SwapChainSupportDetails 
+	{
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
+	};
 
 	class Renderer
 	{
@@ -24,12 +30,19 @@ namespace VulkanRenderer
 	private:
 		VkInstance mInstance;
 		VkSurfaceKHR mSurface;
-		VkPhysicalDevice mPhysicalDevice;
+		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
 		VkDevice mDevice;
 		VkQueue mGraphicsQueue;
 		VkQueue mPresentQueue;
+		VkSwapchainKHR mSwapChain;
+		VkFormat mSwapChainImageFormat;
+		VkExtent2D mSwapChainExtent;
+
+		std::vector<VkImage> mSwapChainImages;
+		std::vector<VkImageView> mSwapChainImageViews;
 
 		VkDebugUtilsMessengerEXT mDebugMessenger;
+		GLFWwindow* mWindowHandle;
 
 
 		bool CheckValidationSupport();
@@ -37,7 +50,17 @@ namespace VulkanRenderer
 		void CreateInstance();
 		void PickPhysicalDevice();
 		void CreateLogicalDevice();
-		void CreateWindowSurface(Window* window);
+		void CreateWindowSurface();
+		void CreateSwapChain();
+		void CreateImageViews();
+		void CreateGraphicsPipeline();
+
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+		bool IsDeviceSuitable(VkPhysicalDevice device);
+		bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
+		SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
+		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	};
 }
