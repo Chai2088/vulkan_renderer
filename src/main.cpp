@@ -14,7 +14,9 @@ int main()
     window.InitWindow();
     renderer.InitVulkan(&window);
 
-    while (!glfwWindowShouldClose(window.GetHandle())) {
+    while (!glfwWindowShouldClose(window.GetHandle())) 
+    {
+        renderer.DrawFrame();
         glfwPollEvents();
     }
 

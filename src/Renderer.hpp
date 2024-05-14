@@ -25,6 +25,7 @@ namespace VulkanRenderer
 	{
 	public:
 		void InitVulkan(Window* window);
+		void DrawFrame();
 		void ShutdownVulkan();
 
 	private:
@@ -37,9 +38,20 @@ namespace VulkanRenderer
 		VkSwapchainKHR mSwapChain;
 		VkFormat mSwapChainImageFormat;
 		VkExtent2D mSwapChainExtent;
+		VkRenderPass mRenderPass;
+		VkPipelineLayout mPipelineLayout;
+		VkPipeline mGraphicsPipeline;
+		VkCommandPool mCommandPool;
+		VkCommandBuffer mCommandBuffer;
+
+		//Syncronization
+		VkSemaphore mImageAvailableSemaphore;
+		VkSemaphore mRenderFinishedSemaphore;
+		VkFence mInFlightFence;
 
 		std::vector<VkImage> mSwapChainImages;
 		std::vector<VkImageView> mSwapChainImageViews;
+		std::vector<VkFramebuffer> mSwapChainFramebuffers;
 
 		VkDebugUtilsMessengerEXT mDebugMessenger;
 		GLFWwindow* mWindowHandle;
@@ -53,8 +65,15 @@ namespace VulkanRenderer
 		void CreateWindowSurface();
 		void CreateSwapChain();
 		void CreateImageViews();
+		void CreateRenderPass();
 		void CreateGraphicsPipeline();
+		void CreateFrameBuffers();
+		void CreateCommandPool();
+		void CreateCommandBuffer();
+		void CreateSyncObjects();
 
+
+		void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 		bool IsDeviceSuitable(VkPhysicalDevice device);
 		bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
@@ -62,5 +81,6 @@ namespace VulkanRenderer
 		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+		VkShaderModule CreateShaderModule(const std::vector<char>& code);
 	};
 }
