@@ -1,5 +1,16 @@
 #include <vulkan/vulkan.hpp>
 #include "Window.hpp"
+#include "Renderer.hpp"
+
+namespace
+{
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) 
+	{
+		auto app = reinterpret_cast<VulkanRenderer::Window*>(glfwGetWindowUserPointer(window));
+		app->mFramebufferResized = true;
+	}
+}
+
 
 namespace VulkanRenderer
 {
@@ -9,7 +20,9 @@ namespace VulkanRenderer
 		glfwInit();
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		mWindow = glfwCreateWindow(640, 480, "Vulkan Renderer", NULL, NULL);
+		mWindow = glfwCreateWindow(1280, 760, "Vulkan Renderer", NULL, NULL);
+		glfwSetWindowUserPointer(mWindow, this);
+		glfwSetFramebufferSizeCallback(mWindow, framebufferResizeCallback);
 	}
 	void Window::Shutdown()
 	{

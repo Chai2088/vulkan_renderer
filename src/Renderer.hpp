@@ -42,19 +42,21 @@ namespace VulkanRenderer
 		VkPipelineLayout mPipelineLayout;
 		VkPipeline mGraphicsPipeline;
 		VkCommandPool mCommandPool;
-		VkCommandBuffer mCommandBuffer;
+		std::vector<VkCommandBuffer> mCommandBuffers;
 
 		//Syncronization
-		VkSemaphore mImageAvailableSemaphore;
-		VkSemaphore mRenderFinishedSemaphore;
-		VkFence mInFlightFence;
+		std::vector<VkSemaphore> mImageAvailableSemaphores;
+		std::vector<VkSemaphore> mRenderFinishedSemaphores;
+		std::vector<VkFence> mInFlightFences;
 
 		std::vector<VkImage> mSwapChainImages;
 		std::vector<VkImageView> mSwapChainImageViews;
 		std::vector<VkFramebuffer> mSwapChainFramebuffers;
 
 		VkDebugUtilsMessengerEXT mDebugMessenger;
-		GLFWwindow* mWindowHandle;
+		Window* mWindow;
+
+		uint32_t mCurrentFrame = 0;
 
 
 		bool CheckValidationSupport();
@@ -69,8 +71,11 @@ namespace VulkanRenderer
 		void CreateGraphicsPipeline();
 		void CreateFrameBuffers();
 		void CreateCommandPool();
-		void CreateCommandBuffer();
+		void CreateCommandBuffers();
 		void CreateSyncObjects();
+		
+		void RecreateSwapChain();
+		void CleanUpSwapChain();
 
 
 		void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);

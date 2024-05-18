@@ -10,7 +10,10 @@ namespace VulkanRenderer
 		void Shutdown();
 
 		GLFWwindow* GetHandle();
+
+		bool mFramebufferResized = false;
 	private:
 		GLFWwindow* mWindow;
+		
 	};
 }
