@@ -1,6 +1,8 @@
 #include <vulkan/vulkan.hpp>
 #include <optional>
 
+#include "Vertex.hpp"
+
 namespace VulkanRenderer
 {
 	class Window;
@@ -58,6 +60,9 @@ namespace VulkanRenderer
 
 		uint32_t mCurrentFrame = 0;
 
+		VkBuffer mVertexBuffer;
+		VkDeviceMemory mVertexBufferMemory;
+
 
 		bool CheckValidationSupport();
 		void SetupDebugMessenger();
@@ -73,6 +78,7 @@ namespace VulkanRenderer
 		void CreateCommandPool();
 		void CreateCommandBuffers();
 		void CreateSyncObjects();
+		void CreateVertexBuffer();
 		
 		void RecreateSwapChain();
 		void CleanUpSwapChain();
@@ -87,5 +93,6 @@ namespace VulkanRenderer
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		VkShaderModule CreateShaderModule(const std::vector<char>& code);
+		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	};
 }

@@ -18,7 +18,7 @@ add_executable (vulkan_renderer "src/main.cpp"
 								"src/Window.hpp" "src/Window.cpp" 
 								"src/Renderer.cpp" "src/Renderer.hpp" 
 								"src/Shader.hpp" "src/Shader.cpp"
-								)
+								 "src/Vertex.hpp")
 
 # TODO: Add tests and install targets if needed.
 target_link_libraries(vulkan_renderer PRIVATE glm::glm glfw Vulkan::Vulkan)

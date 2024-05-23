@@ -20,6 +20,13 @@
 
 namespace
 {
+	const std::vector<VulkanRenderer::Vertex> vertices = {
+		{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	};
+
+
 #ifdef NDEBUG
 	const bool enableValidationLayers = false;
 #else
@@ -153,6 +160,7 @@ namespace VulkanRenderer
 		CreateGraphicsPipeline();
 		CreateFrameBuffers();
 		CreateCommandPool();
+		CreateVertexBuffer();
 		CreateCommandBuffers();
 		CreateSyncObjects();
 	}
@@ -240,6 +248,9 @@ namespace VulkanRenderer
 		vkDeviceWaitIdle(mDevice);
 
 		CleanUpSwapChain();
+
+		vkDestroyBuffer(mDevice, mVertexBuffer, nullptr);
+		vkFreeMemory(mDevice, mVertexBufferMemory, nullptr);
 
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 		{
@@ -430,6 +441,9 @@ namespace VulkanRenderer
 		auto vertShaderCode = LoadShader("data/Shaders/vert.spv");
 		auto fragShaderCode = LoadShader("data/Shaders/frag.spv");
 
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
 		VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
 
@@ -449,8 +463,10 @@ namespace VulkanRenderer
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -650,6 +666,41 @@ namespace VulkanRenderer
 			}
 		}
 	}
+	void Renderer::CreateVertexBuffer()
+	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = sizeof(Vertex) * vertices.size();
+
+		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(mDevice, &bufferInfo, nullptr, &mVertexBuffer) != VK_SUCCESS) 
+		{
+			throw std::runtime_error("failed to create vertex buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(mDevice, mVertexBuffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		
+		if (vkAllocateMemory(mDevice, &allocInfo, nullptr, &mVertexBufferMemory) != VK_SUCCESS) 
+		{
+			throw std::runtime_error("failed to allocate vertex buffer memory!");
+		}
+
+		vkBindBufferMemory(mDevice, mVertexBuffer, mVertexBufferMemory, 0);
+
+		void* data;
+		vkMapMemory(mDevice, mVertexBufferMemory, 0, bufferInfo.size, 0, &data);
+		memcpy(data, vertices.data(), (size_t)bufferInfo.size);
+		vkUnmapMemory(mDevice, mVertexBufferMemory);
+	}
 	
 	void Renderer::RecreateSwapChain()
 	{
@@ -820,6 +871,12 @@ namespace VulkanRenderer
 		scissor.extent = mSwapChainExtent;
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+
+		VkBuffer vertexBuffers[] = { mVertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
 		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(commandBuffer);
@@ -982,5 +1039,20 @@ namespace VulkanRenderer
 		}
 
 		return shaderModule;
+	}
+	uint32_t Renderer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+	{
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(mPhysicalDevice, &memProperties);
+
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
 	}
 }
