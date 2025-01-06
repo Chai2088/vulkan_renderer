@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(glm CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(vulkan REQUIRED)
+find_package(Stb REQUIRED)
 
 # Add source to this project's executable.
 add_executable (vulkan_renderer "src/main.cpp" 
@@ -21,4 +22,5 @@ add_executable (vulkan_renderer "src/main.cpp"
 								 "src/Vertex.hpp")
 
 # TODO: Add tests and install targets if needed.
-target_link_libraries(vulkan_renderer PRIVATE glm::glm glfw Vulkan::Vulkan)
+target_link_libraries(vulkan_renderer PRIVATE glm::glm glfw Vulkan::Vulkan )
+target_include_directories(vulkan_renderer PRIVATE ${Stb_INCLUDE_DIR})

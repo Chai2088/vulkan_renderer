@@ -62,7 +62,10 @@ namespace VulkanRenderer
 
 		VkBuffer mVertexBuffer;
 		VkDeviceMemory mVertexBufferMemory;
+		VkBuffer mIndexBuffer;
+		VkDeviceMemory mIndexBufferMemory;
 
+		VkImageView mTextureImageView;
 
 		bool CheckValidationSupport();
 		void SetupDebugMessenger();
@@ -79,6 +82,7 @@ namespace VulkanRenderer
 		void CreateCommandBuffers();
 		void CreateSyncObjects();
 		void CreateVertexBuffer();
+		void CreateIndexBuffer();
 		
 		void RecreateSwapChain();
 		void CleanUpSwapChain();
@@ -94,5 +98,12 @@ namespace VulkanRenderer
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		VkShaderModule CreateShaderModule(const std::vector<char>& code);
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+		
+		void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+		void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
+		//Textures
+		void CreateTextureImage();
+		void CreateTextureImageView();
+
 	};
 }
