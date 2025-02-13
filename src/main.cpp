@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
 #include "Window.hpp"
-#include "Renderer.hpp"
+#include "Graphics/Renderer.hpp"
 
 int main()
 {
@@ -16,6 +16,8 @@ int main()
 
     while (!glfwWindowShouldClose(window.GetHandle())) 
     {
+        if (renderer.Update())
+            break;
         renderer.DrawFrame();
         glfwPollEvents();
     }

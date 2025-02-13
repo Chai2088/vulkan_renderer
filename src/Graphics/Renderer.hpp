@@ -1,11 +1,27 @@
 #include <vulkan/vulkan.hpp>
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <optional>
+#include <unordered_map>
 
 #include "Vertex.hpp"
+#include "Texture.hpp"
+#include "Model.hpp"
+#include "Camera.hpp"
 
 namespace VulkanRenderer
 {
 	class Window;
+
+	struct UniformBufferObject
+	{
+		glm::mat4 view;
+		glm::mat4 proj;
+	};
 
 	struct QueueFamilyIndices
 	{
@@ -27,6 +43,7 @@ namespace VulkanRenderer
 	{
 	public:
 		void InitVulkan(Window* window);
+		bool Update();
 		void DrawFrame();
 		void ShutdownVulkan();
 
@@ -41,6 +58,7 @@ namespace VulkanRenderer
 		VkFormat mSwapChainImageFormat;
 		VkExtent2D mSwapChainExtent;
 		VkRenderPass mRenderPass;
+		VkDescriptorSetLayout mDescriptorSetLayout;
 		VkPipelineLayout mPipelineLayout;
 		VkPipeline mGraphicsPipeline;
 		VkCommandPool mCommandPool;
@@ -64,8 +82,34 @@ namespace VulkanRenderer
 		VkDeviceMemory mVertexBufferMemory;
 		VkBuffer mIndexBuffer;
 		VkDeviceMemory mIndexBufferMemory;
+		VkBuffer mInstanceBuffer;
+		VkDeviceMemory mInstanceBufferMemory;
+		uint32_t mInstanceCount = 10;
 
-		VkImageView mTextureImageView;
+		//Descriptors
+		VkDescriptorPool mDescriptorPool;
+		std::vector<VkDescriptorSet> mDescriptorSets;
+
+		std::vector<VkBuffer> mUniformBuffers;
+		std::vector<VkDeviceMemory> mUniformBuffersMemory;
+		std::vector<void*> mUniformBuffersMapped;
+
+		//Textures
+		VkSampler mTextureSampler;
+		std::vector<std::string> mCurrentTexturePaths;
+		std::unordered_map<std::string, Texture*> mTextures;
+
+		//Depth Buffer
+		VkImage mDepthImage;
+		VkDeviceMemory mDepthImageMemory;
+		VkImageView mDepthImageView;
+
+		//Antialising
+		VkSampleCountFlagBits mMsaaSamples = VK_SAMPLE_COUNT_1_BIT;
+		//Msaa buffers
+		VkImage mColorImage;
+		VkDeviceMemory mColorImageMemory;
+		VkImageView mColorImageView;
 
 		bool CheckValidationSupport();
 		void SetupDebugMessenger();
@@ -76,6 +120,7 @@ namespace VulkanRenderer
 		void CreateSwapChain();
 		void CreateImageViews();
 		void CreateRenderPass();
+		void CreateDescriptorSetLayout();
 		void CreateGraphicsPipeline();
 		void CreateFrameBuffers();
 		void CreateCommandPool();
@@ -83,10 +128,18 @@ namespace VulkanRenderer
 		void CreateSyncObjects();
 		void CreateVertexBuffer();
 		void CreateIndexBuffer();
-		
+		void CreateInstanceBuffer();
+		void CreateUniformBuffers();
+		void CreateDescriptorPools();
+		void CreateDescriptorSets();
+		//Textures
+		void CreateTextureImage();
+		void CreateTextureSampler();
+		//Depth buffer
+		void CreateDepthResources();
+
 		void RecreateSwapChain();
 		void CleanUpSwapChain();
-
 
 		void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
@@ -99,11 +152,41 @@ namespace VulkanRenderer
 		VkShaderModule CreateShaderModule(const std::vector<char>& code);
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		
+		//Create buffer helper function for staging buffers
 		void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 		void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
-		//Textures
-		void CreateTextureImage();
-		void CreateTextureImageView();
+		
+		//Create image helper function
+		void CreateImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, 
+			VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+		void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel);
+		void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		void LoadTexture(const std::string& texturePath);
 
+		//Helper function to create an Image View
+		VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel);
+
+		//Helper function to record command buffers
+		VkCommandBuffer BeginSingleTimeCommands();
+		void EndSingleTimeCommands(VkCommandBuffer commandBUffer);
+
+		//Helper function to find supported formats
+		VkFormat FindSupportedFormats(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+		VkFormat FindDepthFormat();
+		bool HasStencilComponent(VkFormat format);
+
+		//Helper function to generate mipmaps
+		void GenerateMipmaps(VkImage image, VkFormat format, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+
+		//Helper function to obtain maximum sample count per pixel
+		VkSampleCountFlagBits GetMaxUsableSampleCount();
+		//Creates MSAA buffer
+		void CreateColorResources();
+
+		//UBO
+		void UpdateUniformBuffer(uint32_t currentImage);
+		
+		//Updates the instance buffer
+		void UpdateInstanceBuffer(const std::vector<InstanceData>& data);
 	};
 }

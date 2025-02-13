@@ -14,6 +14,5 @@ namespace VulkanRenderer
 		bool mFramebufferResized = false;
 	private:
 		GLFWwindow* mWindow;
-		
 	};
 }

@@ -1,6 +1,6 @@
 #include <vulkan/vulkan.hpp>
 #include "Window.hpp"
-#include "Renderer.hpp"
+#include "Graphics/Renderer.hpp"
 
 namespace
 {
