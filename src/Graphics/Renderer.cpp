@@ -19,6 +19,7 @@
 #include <limits>
 #include <chrono>
 
+#include "Core/SystemManager.hpp"
 #include "Window.hpp"
 #include "Vertex.hpp"
 #include "Renderer.hpp"
@@ -241,6 +242,7 @@ namespace VulkanRenderer
 		LoadModel();
 		CreateVertexBuffer();
 		CreateIndexBuffer();
+		CreateDummyRenderable();
 		CreateInstanceBuffer();
 		CreateUniformBuffers();
 		CreateDescriptorPools();
@@ -1228,63 +1230,68 @@ namespace VulkanRenderer
 
 		//Start recording all the commands
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		
-		//Record push constants
+
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-		PushConstants pushConstant;
-		
-		pushConstant.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		
-		vkCmdPushConstants(
-			commandBuffer,              // Command buffer
-			mPipelineLayout,            // Pipeline layout
-			VK_SHADER_STAGE_VERTEX_BIT, // Shader stage
-			0,                          // Offset
-			sizeof(PushConstants),      // Size
-			&pushConstant				// Data
-		);
-		
-		//Temp: Create 2 model instances
-		glm::mat4 rotSca = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		rotSca *= glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
 
-		glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
-		glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
-		std::vector<InstanceData> instances = { {model0}, {model1} };
-		UpdateInstanceBuffer(instances);
+		for (int i = 0; i < mRenderables.size(); ++i)
+		{
+			//Record push constants
+			PushConstants pushConstant;
 
-		//Bind the pipeline
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+			pushConstant.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-		//Set the viewport and scissor size
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(mSwapChainExtent.width);
-		viewport.height = static_cast<float>(mSwapChainExtent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+			vkCmdPushConstants(
+				commandBuffer,              // Command buffer
+				mPipelineLayout,            // Pipeline layout
+				VK_SHADER_STAGE_VERTEX_BIT, // Shader stage
+				0,                          // Offset
+				sizeof(PushConstants),      // Size
+				&pushConstant				// Data
+			);
 
-		VkRect2D scissor{};
-		scissor.offset = { 0, 0 };
-		scissor.extent = mSwapChainExtent;
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+			//Temp: Create 2 model instances
+			glm::mat4 rotSca = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			rotSca *= glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
 
-		//Bind the vertex buffer
-		VkBuffer vertexBuffers[] = { mVertexBuffer , mInstanceBuffer};
-		VkDeviceSize offsets[] = { 0 , 0}; //Offsets are from where it starts reading each buffer
-		vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
+			glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
+			glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
+			std::vector<InstanceData> instances = { {model0}, {model1} };
+			UpdateInstanceBuffer(instances);
 
-		//Bind the index buffer
-		vkCmdBindIndexBuffer(commandBuffer, mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);	
+			//Bind the pipeline
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescriptorSets[mCurrentFrame], 0, nullptr);
+			//Set the viewport and scissor size
+			VkViewport viewport{};
+			viewport.x = 0.0f;
+			viewport.y = 0.0f;
+			viewport.width = static_cast<float>(mSwapChainExtent.width);
+			viewport.height = static_cast<float>(mSwapChainExtent.height);
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
+			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), instances.size(), 0, 0, 0);
+			VkRect2D scissor{};
+			scissor.offset = { 0, 0 };
+			scissor.extent = mSwapChainExtent;
+			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+			
+			//Bind the vertex buffer
+			VkBuffer vertexBuffers[] = { mRenderables[i]->mMesh->mVertexBuffer , mInstanceBuffer};
+			VkDeviceSize offsets[] = { 0 , 0 }; //Offsets are from where it starts reading each buffer
+			vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
+
+			//Bind the index buffer
+			vkCmdBindIndexBuffer(commandBuffer, mRenderables[i]->mMesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescriptorSets[mCurrentFrame], 0, nullptr);
+
+			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), instances.size(), 0, 0, 0);
+		}
 
 		vkCmdEndRenderPass(commandBuffer);
 
@@ -1597,6 +1604,23 @@ namespace VulkanRenderer
 		//Free memory
 		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
 		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
+	}
+
+	void Renderer::CreateDummyRenderable()
+	{
+		Renderable* renderable = SystemManager::GetInstance()->GetFactory().Create<Renderable>();
+		renderable->mMesh = new Mesh();
+		renderable->mMaterial = new Material();
+		renderable->mMaterial->mDiffuseTexture = new Texture();
+
+		renderable->mMesh->mVertexBuffer = mVertexBuffer;
+		renderable->mMesh->mVertexBufferMemory = mVertexBufferMemory;
+		renderable->mMesh->mIndexBuffer = mIndexBuffer;
+		renderable->mMesh->mIndexBufferMemory = mIndexBufferMemory;
+		
+		renderable->mMaterial->mDiffuseTexture = mTextures[TEXTURE_PATH];
+
+		mRenderables.push_back(renderable);
 	}
 
 	void Renderer::CreateImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format,

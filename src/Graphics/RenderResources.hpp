@@ -14,4 +14,17 @@ namespace VulkanRenderer
 		VkImage mTextureImage;
 		VkDeviceMemory mTextureImageMemory;
 	};
+	struct Material
+	{
+		Texture* mDiffuseTexture;
+	};
+	struct Mesh
+	{
+		VkBuffer mVertexBuffer;
+		VkDeviceMemory mVertexBufferMemory;
+		VkBuffer mIndexBuffer;
+		VkDeviceMemory mIndexBufferMemory;
+
+		uint32_t mIndexCount;
+	};
 }

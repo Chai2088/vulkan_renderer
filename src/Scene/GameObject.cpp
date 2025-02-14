@@ -25,5 +25,14 @@ namespace VulkanRenderer
 			comp.second->Shutdown();
 		}
 	}
+	void GameObejct::AddComponent(Component* comp)
+	{
+		//Check if the component already exist in the object
+		if (mComponents.find(comp->GetId()) != mComponents.end())
+			return;
+
+		//Register the component
+		mComponents[comp->GetId()] = comp;
+	}
 }
 

@@ -9,8 +9,8 @@
 #include <unordered_map>
 
 #include "Vertex.hpp"
-#include "Texture.hpp"
-#include "Model.hpp"
+#include "RenderResources.hpp"
+#include "Renderable.hpp"
 #include "Camera.hpp"
 
 namespace VulkanRenderer
@@ -106,10 +106,13 @@ namespace VulkanRenderer
 
 		//Antialising
 		VkSampleCountFlagBits mMsaaSamples = VK_SAMPLE_COUNT_1_BIT;
+		
 		//Msaa buffers
 		VkImage mColorImage;
 		VkDeviceMemory mColorImageMemory;
 		VkImageView mColorImageView;
+
+		std::vector<Renderable*> mRenderables;
 
 		bool CheckValidationSupport();
 		void SetupDebugMessenger();
@@ -188,5 +191,8 @@ namespace VulkanRenderer
 		
 		//Updates the instance buffer
 		void UpdateInstanceBuffer(const std::vector<InstanceData>& data);
+
+		//Temp check renderable is working
+		void CreateDummyRenderable();
 	};
 }
