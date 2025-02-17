@@ -6,24 +6,15 @@
 #include <vulkan/vulkan.hpp>
 #include "Window.hpp"
 #include "Graphics/Renderer.hpp"
+#include "Core/Engine.hpp"
 
 int main()
 {
-	VulkanRenderer::Window window;
-    VulkanRenderer::Renderer renderer;
-    window.InitWindow();
-    renderer.InitVulkan(&window);
-
-    while (!glfwWindowShouldClose(window.GetHandle())) 
-    {
-        if (renderer.Update())
-            break;
-        renderer.DrawFrame();
-        glfwPollEvents();
-    }
-
-    renderer.ShutdownVulkan();
-    window.Shutdown();
+    VulkanRenderer::Engine* engine = VulkanRenderer::Engine::GetInstance();
+	
+	engine->Initialize();
+	engine->Run();
+	engine->Shutdown();
 
 	return 0;
 }

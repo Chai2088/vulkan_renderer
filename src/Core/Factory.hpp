@@ -24,6 +24,8 @@ namespace VulkanRenderer
 	class Factory
 	{
 	public:
+		void Shutdown();
+		//Resgister and creates intances of objects
 		template<typename T>
 		void Register()
 		{

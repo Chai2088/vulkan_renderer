@@ -1,3 +1,4 @@
+#pragma once
 #include <vulkan/vulkan.hpp>
 
 #define GLM_FORCE_RADIANS
@@ -43,10 +44,13 @@ namespace VulkanRenderer
 	{
 	public:
 		void InitVulkan(Window* window);
-		bool Update();
+		void Update();
 		void DrawFrame();
 		void ShutdownVulkan();
 
+		//Resource loading
+		Mesh* LoadMesh(const char* meshPath);
+		Texture* LoadTexture(const char* texPath);
 	private:
 		VkInstance mInstance;
 		VkSurfaceKHR mSurface;
@@ -129,8 +133,8 @@ namespace VulkanRenderer
 		void CreateCommandPool();
 		void CreateCommandBuffers();
 		void CreateSyncObjects();
-		void CreateVertexBuffer();
-		void CreateIndexBuffer();
+		void CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory);
+		void CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory);
 		void CreateInstanceBuffer();
 		void CreateUniformBuffers();
 		void CreateDescriptorPools();

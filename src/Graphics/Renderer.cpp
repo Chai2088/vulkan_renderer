@@ -19,7 +19,7 @@
 #include <limits>
 #include <chrono>
 
-#include "Core/SystemManager.hpp"
+#include "Core/Engine.hpp"
 #include "Window.hpp"
 #include "Vertex.hpp"
 #include "Renderer.hpp"
@@ -158,14 +158,14 @@ namespace
 	}
 
 	//Helper function to load the model
-	void LoadModel()
+	void LoadMeshData(std::vector<VulkanRenderer::Vertex>& vertices, std::vector<uint32_t>& indices, const char* meshPath)
 	{
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string warn, err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, meshPath)) {
 			throw std::runtime_error(warn + err);
 		}
 
@@ -239,9 +239,9 @@ namespace VulkanRenderer
 		CreateFrameBuffers();
 		CreateTextureImage();
 		CreateTextureSampler();
-		LoadModel();
-		CreateVertexBuffer();
-		CreateIndexBuffer();
+		LoadMeshData(vertices, indices, MODEL_PATH.c_str());
+		CreateVertexBuffer(vertices, mVertexBuffer, mVertexBufferMemory);
+		CreateIndexBuffer(indices, mIndexBuffer, mIndexBufferMemory);
 		CreateDummyRenderable();
 		CreateInstanceBuffer();
 		CreateUniformBuffers();
@@ -250,21 +250,15 @@ namespace VulkanRenderer
 		CreateCommandBuffers();
 		CreateSyncObjects();
 	}
-	bool Renderer::Update()
+	void Renderer::Update()
 	{
 		//Get window handle
 		GLFWwindow* window = mWindow->GetHandle();
-
-		//Check if ESC has been pressed to exit
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			return true;
 		
 		//Compute delta time
 		float currentFrame = glfwGetTime();
 		float deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
-
-
 
 		//Update camera position
 		const float cameraSpeed = 5.0f * deltaTime; // adjust accordingly
@@ -276,9 +270,6 @@ namespace VulkanRenderer
 			mCamera.OffsetCamera(-glm::normalize(glm::cross(mCamera.GetDirection(), mCamera.GetUpVector())) * cameraSpeed);
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 			mCamera.OffsetCamera(glm::normalize(glm::cross(mCamera.GetDirection(), mCamera.GetUpVector())) * cameraSpeed);
-
-
-		return false;
 	}
 	void Renderer::DrawFrame()
 	{
@@ -419,6 +410,74 @@ namespace VulkanRenderer
 
 		vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 		vkDestroyInstance(mInstance, nullptr);
+	}
+
+	Mesh* Renderer::LoadMesh(const char* meshPath)
+	{
+		Mesh* mesh = Engine::GetInstance()->GetFactory().Create<Mesh>();
+		std::vector<Vertex> vertices{};
+		std::vector<uint32_t> indices{};
+		//Load mesh vertex and index data
+		LoadMeshData(vertices, indices, meshPath);
+		
+		//Create vulkan buffers
+		CreateVertexBuffer(vertices, mesh->mVertexBuffer, mesh->mVertexBufferMemory);
+		CreateIndexBuffer(indices, mesh->mIndexBuffer, mesh->mIndexBufferMemory);
+
+		return mesh;
+	}
+
+	Texture* Renderer::LoadTexture(const char* texPath)
+	{
+		int textWidth;
+		int textHeight;
+		int textChannels;
+		stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &textWidth, &textHeight, &textChannels, STBI_rgb_alpha);
+		VkDeviceSize imageSize = textWidth * textHeight * 4;
+
+		if (!pixels)
+		{
+			throw std::runtime_error("Could not load image");
+		}
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+
+		//Create a staging buffer
+		CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		//Map the image data to the staging buffer
+		void* data;
+		vkMapMemory(mDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		vkUnmapMemory(mDevice, stagingBufferMemory);
+
+		Texture* texture = Engine::GetInstance()->GetFactory().Create<Texture>();
+		texture->mMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(textWidth, textHeight)))) + 1;
+
+		//Create the image
+		CreateImage(textWidth, textHeight, texture->mMipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture->mTextureImage, texture->mTextureImageMemory);
+
+		//Transition image to TRANSFER_DST_OPTIMAL format
+		TransitionImageLayout(texture->mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, texture->mMipLevels);
+
+		//Copy the buffer to the image
+		CopyBufferToImage(stagingBuffer, texture->mTextureImage, static_cast<uint32_t>(textWidth), static_cast<uint32_t>(textHeight));
+
+		//Generate Mipmaps for the texture
+		GenerateMipmaps(texture->mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, textWidth, textHeight, texture->mMipLevels);
+
+		//Create the image view
+		texture->mTextureImageView = CreateImageView(texture->mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, texture->mMipLevels);
+
+		//Clean up
+		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
+		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
+		
+		return texture;
 	}
 	
 	//Vulkan Init functions
@@ -864,7 +923,7 @@ namespace VulkanRenderer
 			}
 		}
 	}
-	void Renderer::CreateVertexBuffer()
+	void Renderer::CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory)
 	{
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -880,15 +939,15 @@ namespace VulkanRenderer
 		vkUnmapMemory(mDevice, stagingBufferMemory);
 
 		CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mVertexBuffer, mVertexBufferMemory);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 	
-		CopyBuffer(stagingBuffer, mVertexBuffer, bufferSize);
+		CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 		
 		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
 		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
 	}
 
-	void Renderer::CreateIndexBuffer()
+	void Renderer::CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory)
 	{
 		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -903,9 +962,9 @@ namespace VulkanRenderer
 		vkUnmapMemory(mDevice, stagingBufferMemory);
 
 		CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mIndexBuffer, mIndexBufferMemory);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
 
-		CopyBuffer(stagingBuffer, mIndexBuffer, bufferSize);
+		CopyBuffer(stagingBuffer, indexBuffer, bufferSize);
 
 		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
 		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
@@ -1608,7 +1667,7 @@ namespace VulkanRenderer
 
 	void Renderer::CreateDummyRenderable()
 	{
-		Renderable* renderable = SystemManager::GetInstance()->GetFactory().Create<Renderable>();
+		Renderable* renderable = Engine::GetInstance()->GetFactory().Create<Renderable>();
 		renderable->mMesh = new Mesh();
 		renderable->mMaterial = new Material();
 		renderable->mMaterial->mDiffuseTexture = new Texture();
