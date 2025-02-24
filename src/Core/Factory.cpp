@@ -8,4 +8,8 @@ namespace VulkanRenderer
 			delete creator;
 		}
 	}
+	void Factory::Delete(void* obj)
+	{
+		delete obj;
+	}
 }

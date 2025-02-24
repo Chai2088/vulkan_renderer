@@ -15,6 +15,7 @@ namespace VulkanRenderer
 	{
 		mWindow.InitWindow();
 		mRenderer.InitVulkan(&mWindow);
+		mResourceManager.Initialize();
 	}
 	void Engine::Update()
 	{
@@ -27,10 +28,10 @@ namespace VulkanRenderer
 	void Engine::Shutdown()
 	{
 		//Shutdown all the systems
+		mResourceManager.Shutdown();
 		mFactory.Shutdown();
 		mWindow.Shutdown();
 		mRenderer.ShutdownVulkan();
-		
 		//Delete the singleton
 		delete mEngine;
 	}
@@ -55,5 +56,9 @@ namespace VulkanRenderer
 	Renderer& Engine::GetRenderer()
 	{
 		return mRenderer;
+	}
+	ResourceManager& Engine::GetResourceManager()
+	{
+		return mResourceManager;
 	}
 }

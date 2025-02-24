@@ -25,6 +25,8 @@ namespace VulkanRenderer
 	{
 	public:
 		void Shutdown();
+		void Delete(void* obj);
+
 		//Resgister and creates intances of objects
 		template<typename T>
 		void Register()

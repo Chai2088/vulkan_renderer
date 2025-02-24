@@ -26,6 +26,7 @@ namespace VulkanRenderer
 		{
 			T* newComp = Engine::GetInstance()->GetFactory().Create<T>();
 			AddComponent(newComp);
+			newComp->OnCreate();
 			return newComp;
 		}
 		void AddComponent(Component* comp);

@@ -7,14 +7,19 @@
 #include "Window.hpp"
 #include "Graphics/Renderer.hpp"
 #include "Core/Engine.hpp"
-
+#include "Tests/TestScene.hpp"
 int main()
 {
     VulkanRenderer::Engine* engine = VulkanRenderer::Engine::GetInstance();
+	VulkanRenderer::TestScene scene;
 	
 	engine->Initialize();
-	engine->Run();
-	engine->Shutdown();
+	scene.OnCreate();
+	scene.Initialize();
 
+	engine->Run();
+
+	scene.Shutdown();
+	engine->Shutdown();
 	return 0;
 }

@@ -18,7 +18,7 @@ add_executable (vulkan_renderer "src/main.cpp"
 								"src/Window.hpp" "src/Window.cpp" 
 								"src/Graphics/Renderer.cpp" "src/Graphics/Renderer.hpp" 
 								"src/Graphics/Shader.hpp" "src/Graphics/Shader.cpp"
-								"src/Graphics/Vertex.hpp"   "src/Graphics/Camera.cpp" "src/Scene/GameObject.cpp"  "src/Core/Factory.cpp" "src/Core/Engine.cpp" "src/Graphics/Renderable.cpp"  "src/Core/Utils.cpp" "src/Resources/ResourceManager.cpp" "src/Scene/Scene.cpp" "src/Resources/ResourceImporter.cpp")
+								"src/Graphics/Vertex.hpp"   "src/Graphics/Camera.cpp" "src/Scene/GameObject.cpp"  "src/Core/Factory.cpp" "src/Core/Engine.cpp" "src/Graphics/Renderable.cpp"  "src/Core/Utils.cpp" "src/Resources/ResourceManager.cpp" "src/Scene/Scene.cpp" "src/Resources/ResourceImporter.cpp" "src/Tests/TestScene.cpp")
 
 add_custom_command(
     TARGET vulkan_renderer POST_BUILD

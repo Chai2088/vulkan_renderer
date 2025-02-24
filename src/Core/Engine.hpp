@@ -36,6 +36,7 @@ namespace VulkanRenderer
 		//Get the systems
 		Factory& GetFactory();
 		Renderer& GetRenderer();
+		ResourceManager& GetResourceManager();
 	protected:
 		//Singleton
 		Engine() {}

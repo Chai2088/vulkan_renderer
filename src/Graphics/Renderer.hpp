@@ -46,11 +46,24 @@ namespace VulkanRenderer
 		void InitVulkan(Window* window);
 		void Update();
 		void DrawFrame();
+		void Shutdown();
 		void ShutdownVulkan();
+
+		//Renderer is waiting idle
+		void WaitIdle();
 
 		//Resource loading
 		Mesh* LoadMesh(const char* meshPath);
 		Texture* LoadTexture(const char* texPath);
+
+		//Destroying resources
+		void DestroyMesh(Mesh* mesh);
+		void DestroyTexture(Texture* tex);
+		
+		//Register and unregister component from system
+		void AddToSystem(Renderable* rend);
+		void RemoveFromSystem(Renderable* rend);
+
 	private:
 		VkInstance mInstance;
 		VkSurfaceKHR mSurface;
@@ -62,7 +75,7 @@ namespace VulkanRenderer
 		VkFormat mSwapChainImageFormat;
 		VkExtent2D mSwapChainExtent;
 		VkRenderPass mRenderPass;
-		VkDescriptorSetLayout mDescriptorSetLayout;
+		std::array<VkDescriptorSetLayout, 3> mDescriptorSetLayouts;
 		VkPipelineLayout mPipelineLayout;
 		VkPipeline mGraphicsPipeline;
 		VkCommandPool mCommandPool;
@@ -100,8 +113,8 @@ namespace VulkanRenderer
 
 		//Textures
 		VkSampler mTextureSampler;
-		std::vector<std::string> mCurrentTexturePaths;
-		std::unordered_map<std::string, Texture*> mTextures;
+		std::vector<Texture*> mTexturesInUse;
+
 
 		//Depth Buffer
 		VkImage mDepthImage;
@@ -168,7 +181,6 @@ namespace VulkanRenderer
 			VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 		void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel);
 		void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-		void LoadTexture(const std::string& texturePath);
 
 		//Helper function to create an Image View
 		VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel);
@@ -198,5 +210,8 @@ namespace VulkanRenderer
 
 		//Temp check renderable is working
 		void CreateDummyRenderable();
+
+		//Updates the texture loaded in the shader
+		void UpdateTexture();
 	};
 }

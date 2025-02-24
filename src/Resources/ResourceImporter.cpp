@@ -18,6 +18,11 @@ namespace VulkanRenderer
 		newMesh->mPath = path;
 		return newMesh;
 	}
+	void MeshImporter::DestroyResource(IResource* res)
+	{
+		Mesh* data = reinterpret_cast<Mesh*>(res->GetRawResource());
+		engine->GetRenderer().DestroyMesh(data);
+	}
 	IResource* TextureImporter::ImportFromFile(const char* path)
 	{
 		TResource<Texture>* newTex = engine->GetFactory().Create<TResource<Texture>>();
@@ -26,8 +31,16 @@ namespace VulkanRenderer
 		newTex->mPath = path;
 		return newTex;
 	}
+	void TextureImporter::DestroyResource(IResource* res)
+	{
+		Texture* data = reinterpret_cast<Texture*>(res->GetRawResource());
+		engine->GetRenderer().DestroyTexture(data);
+	}
 	IResource* MaterialImporter::ImportFromFile(const char* path)
 	{
 		return nullptr;
+	}
+	void MaterialImporter::DestroyResource(IResource* res)
+	{
 	}
 }

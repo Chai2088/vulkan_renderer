@@ -13,7 +13,8 @@ namespace VulkanRenderer
 	}
 	void Renderable::OnCreate()
 	{
-
+		//Add the renderable to the system
+		Engine::GetInstance()->GetRenderer().AddToSystem(this);
 	}
 	void Renderable::Initialize()
 	{

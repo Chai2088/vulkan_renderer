@@ -16,5 +16,6 @@ namespace VulkanRenderer
 		Mesh* mMesh;
 		Material* mMaterial;
 		bool mIsVisible;
+		int32_t mTexIndex;
 	};
 }

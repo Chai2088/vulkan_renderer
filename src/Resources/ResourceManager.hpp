@@ -15,9 +15,9 @@ namespace VulkanRenderer
 		void Initialize();
 		void Shutdown();
 		template <typename T>
-		T* GetResource(const char* path) const
+		T* GetResource(const char* path)
 		{
-			std::string typeName = ParseIDName(typeid(T).name);
+			std::string typeName = ParseIDName(typeid(T).name());
 			//Check if the resource list exists
 			if (mResources.find(typeName) == mResources.end())
 			{
@@ -34,8 +34,8 @@ namespace VulkanRenderer
 		template <typename T>
 		T* LoadResource(const char* path)
 		{
-			std::string typeName = ParseIDName(typeid(T).name);
-			TResource<T>* resource = mImporters.at(typeName)->ImportFromFile(path);
+			std::string typeName = ParseIDName(typeid(T).name());
+			TResource<T>* resource = dynamic_cast<TResource<T>*>(mImporters.at(typeName)->ImportFromFile(path));
 			mResources[typeName][path] = resource;
 			return resource->mRawResource;
 		}

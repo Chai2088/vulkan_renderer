@@ -32,6 +32,10 @@ namespace VulkanRenderer
 	}
 	void GameObjectManager::DestroyGameObject(int32_t id)
 	{
+		//Shutdown object and delete the object
+		mObjects.at(id)->Shutdown();
+		Engine::GetInstance()->GetFactory().Delete(mObjects.at(id));
+
 		//Erase the obj from the registered objects and recycle the id
 		mObjects.erase(id);
 		mFreedId.push(id);
