@@ -1,8 +1,11 @@
 #pragma once
 #include <string>
 #include <cstdint>
+
+
 namespace VulkanRenderer
 {
+	class GameObject;
 	class Component
 	{
 	public:
@@ -14,9 +17,13 @@ namespace VulkanRenderer
 		uint32_t GetId() const { return mId; }
 		std::string GetName() const { return mName; }
 		bool IsActive() { return mActive; }
+		GameObject* GetOwner();
+		void SetOwner(GameObject* obj);
 	protected:
 		uint32_t mId;
 		std::string mName;
 		bool mActive = true;
+
+		GameObject* mOwner = nullptr;
 	};
 }

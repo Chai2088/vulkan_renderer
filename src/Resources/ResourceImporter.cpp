@@ -38,9 +38,11 @@ namespace VulkanRenderer
 	}
 	IResource* MaterialImporter::ImportFromFile(const char* path)
 	{
+
 		return nullptr;
 	}
 	void MaterialImporter::DestroyResource(IResource* res)
 	{
+
 	}
 }

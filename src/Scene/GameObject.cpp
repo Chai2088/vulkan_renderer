@@ -1,3 +1,4 @@
+#include "Transform/TransformComponent.hpp"
 #include "GameObject.hpp"
 
 namespace VulkanRenderer
@@ -8,6 +9,7 @@ namespace VulkanRenderer
 	}
 	void GameObject::OnCreate()
 	{
+		mTransformComp = NewComp<TransformComponent>();
 		for (auto& comp : mComponents)
 		{
 			comp.second->OnCreate();
@@ -45,6 +47,10 @@ namespace VulkanRenderer
 	{
 		return mName;
 	}
+	TransformComponent* GameObject::GetTransformComponent() const
+	{
+		return mTransformComp;
+	}
 	void GameObject::AddComponent(Component* comp)
 	{
 		//Check if the component already exist in the object
@@ -53,6 +59,7 @@ namespace VulkanRenderer
 
 		//Register the component
 		mComponents[comp->GetId()] = comp;
+		comp->SetOwner(this);
 	}
 }
 

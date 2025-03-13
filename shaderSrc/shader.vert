@@ -28,8 +28,7 @@ layout(location = 2) out flat int texId;
 
 void main() 
 {
-    mat4 modelMatrix = mat4(row0, row1, row2, row3);
-    gl_Position = ubo.proj * ubo.view * modelMatrix * vec4(inPosition, 1.0);
+    gl_Position = ubo.proj * (ubo.view * (pushConstants.model * vec4(inPosition, 1.0)));
     fragColor = inColor;
     fragTexCoord = inTexCoord;
     texId = pushConstants.texId;

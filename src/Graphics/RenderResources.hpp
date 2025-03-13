@@ -14,10 +14,6 @@ namespace VulkanRenderer
 		VkImage mTextureImage;
 		VkDeviceMemory mTextureImageMemory;
 	};
-	struct Material
-	{
-		Texture* mDiffuseTexture;
-	};
 	struct Mesh
 	{
 		VkBuffer mVertexBuffer;

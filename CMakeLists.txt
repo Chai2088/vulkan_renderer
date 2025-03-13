@@ -12,22 +12,42 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(vulkan REQUIRED)
 find_package(Stb REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
+find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(imguizmo CONFIG REQUIRED)
 
 # Add source to this project's executable.
 add_executable (vulkan_renderer "src/main.cpp" 
 								"src/Window.hpp" "src/Window.cpp" 
 								"src/Graphics/Renderer.cpp" "src/Graphics/Renderer.hpp" 
-								"src/Graphics/Shader.hpp" "src/Graphics/Shader.cpp"
-								"src/Graphics/Vertex.hpp"   "src/Graphics/Camera.cpp" "src/Scene/GameObject.cpp"  "src/Core/Factory.cpp" "src/Core/Engine.cpp" "src/Graphics/Renderable.cpp"  "src/Core/Utils.cpp" "src/Resources/ResourceManager.cpp" "src/Scene/Scene.cpp" "src/Resources/ResourceImporter.cpp" "src/Tests/TestScene.cpp")
+								"src/Graphics/Vertex.hpp"   "src/Graphics/Camera.cpp" "src/Scene/GameObject.cpp"  
+                                "src/Core/Factory.cpp" "src/Core/Engine.cpp" "src/Graphics/Renderable.cpp" 
+                                "src/Core/Utils.cpp" "src/Resources/ResourceManager.cpp" "src/Scene/Scene.cpp" 
+                                "src/Resources/ResourceImporter.cpp" "src/Tests/TestScene.cpp" "src/Graphics/GraphicsPipeline.cpp" 
+                                "src/Graphics/CommandPool.cpp" "src/Graphics/CommandBuffer.cpp" "src/Transform/TransformComponent.cpp" "src/Scene/Component.cpp" "src/Graphics/Material.cpp" "src/Graphics/Light.cpp" "src/ImGui/ImGuiEditor.cpp")
 
 add_custom_command(
-    TARGET vulkan_renderer POST_BUILD
+    TARGET vulkan_renderer PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/data
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/data
     ${CMAKE_BINARY_DIR}/data
 )
 
 # TODO: Add tests and install targets if needed.
-target_link_libraries(vulkan_renderer PRIVATE glm::glm glfw Vulkan::Vulkan tinyobjloader::tinyobjloader)
+target_link_libraries(vulkan_renderer PRIVATE glm::glm glfw Vulkan::Vulkan tinyobjloader::tinyobjloader nlohmann_json::nlohmann_json)
+target_link_libraries(vulkan_renderer PRIVATE imgui::imgui imguizmo::imguizmo)
 target_include_directories(vulkan_renderer PRIVATE ${Stb_INCLUDE_DIR})
 target_include_directories(vulkan_renderer PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+# the debug version of shaderc doesn't ship with .pdb files in the VulkanSDK
+# therefore supress the warning about missing pdb files
+target_link_options(vulkan_renderer PUBLIC "/ignore:4099")
+target_link_libraries(vulkan_renderer PUBLIC ${Vulkan_LIBRARIES})
+string(REPLACE ".lib" "d.lib" SHADERC_DEBUG ${Vulkan_shaderc_combined_LIBRARY})
+
+target_link_libraries(vulkan_renderer PUBLIC      
+    debug ${SHADERC_DEBUG}  
+    optimized ${Vulkan_shaderc_combined_LIBRARY})
+target_include_directories(vulkan_renderer PUBLIC ${Vulkan_INCLUDE_DIR})

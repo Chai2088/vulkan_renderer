@@ -1,5 +1,6 @@
 #pragma once
 #include <vulkan/vulkan.hpp>
+#include <shaderc/shaderc.hpp>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -13,6 +14,9 @@
 #include "RenderResources.hpp"
 #include "Renderable.hpp"
 #include "Camera.hpp"
+#include "GraphicsPipeline.hpp"
+#include "CommandPool.hpp"
+#include "Light.hpp"
 
 namespace VulkanRenderer
 {
@@ -49,6 +53,14 @@ namespace VulkanRenderer
 		void Shutdown();
 		void ShutdownVulkan();
 
+		//Gettors
+		VkInstance GetInstance();
+		VkPhysicalDevice GetPhysicalDevice();
+		VkDevice GetDevice();
+		VkQueue GetGraphicsQueue();
+		VkRenderPass GetRenderPass();
+		VkSampleCountFlagBits GetMSAASampleCount();
+		
 		//Renderer is waiting idle
 		void WaitIdle();
 
@@ -60,9 +72,12 @@ namespace VulkanRenderer
 		void DestroyMesh(Mesh* mesh);
 		void DestroyTexture(Texture* tex);
 		
-		//Register and unregister component from system
+		//Register and unregister renderable component from system
 		void AddToSystem(Renderable* rend);
 		void RemoveFromSystem(Renderable* rend);
+		//Register and unregister light component
+		void AddLight(Light* light);
+		void RemoveLight(Light* light);
 
 	private:
 		VkInstance mInstance;
@@ -75,11 +90,7 @@ namespace VulkanRenderer
 		VkFormat mSwapChainImageFormat;
 		VkExtent2D mSwapChainExtent;
 		VkRenderPass mRenderPass;
-		std::array<VkDescriptorSetLayout, 3> mDescriptorSetLayouts;
-		VkPipelineLayout mPipelineLayout;
-		VkPipeline mGraphicsPipeline;
-		VkCommandPool mCommandPool;
-		std::vector<VkCommandBuffer> mCommandBuffers;
+		std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
 
 		//Syncronization
 		std::vector<VkSemaphore> mImageAvailableSemaphores;
@@ -106,15 +117,20 @@ namespace VulkanRenderer
 		//Descriptors
 		VkDescriptorPool mDescriptorPool;
 		std::vector<VkDescriptorSet> mDescriptorSets;
-
+		
+		//Camera and material ubo
 		std::vector<VkBuffer> mUniformBuffers;
 		std::vector<VkDeviceMemory> mUniformBuffersMemory;
 		std::vector<void*> mUniformBuffersMapped;
 
+		//Light UBO
+		VkBuffer		mLightUBO;
+		VkDeviceMemory	mLightUBOMemory;
+		void*			mLightUBOMapped;
+		
 		//Textures
 		VkSampler mTextureSampler;
 		std::vector<Texture*> mTexturesInUse;
-
 
 		//Depth Buffer
 		VkImage mDepthImage;
@@ -124,12 +140,18 @@ namespace VulkanRenderer
 		//Antialising
 		VkSampleCountFlagBits mMsaaSamples = VK_SAMPLE_COUNT_1_BIT;
 		
+		//Graphics Pipeline
+		GraphicsPipeline mPipeline;
+		//Command Pool
+		CommandPool mCommandPool;
+
 		//Msaa buffers
 		VkImage mColorImage;
 		VkDeviceMemory mColorImageMemory;
 		VkImageView mColorImageView;
 
 		std::vector<Renderable*> mRenderables;
+		std::vector<Light*> mLights;
 
 		bool CheckValidationSupport();
 		void SetupDebugMessenger();
@@ -161,7 +183,7 @@ namespace VulkanRenderer
 		void RecreateSwapChain();
 		void CleanUpSwapChain();
 
-		void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		void RecordCommandBuffer(CommandBuffer& commandBuffer, uint32_t imageIndex);
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 		bool IsDeviceSuitable(VkPhysicalDevice device);
 		bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
@@ -169,7 +191,7 @@ namespace VulkanRenderer
 		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-		VkShaderModule CreateShaderModule(const std::vector<char>& code);
+		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& code);
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		
 		//Create buffer helper function for staging buffers
@@ -213,5 +235,16 @@ namespace VulkanRenderer
 
 		//Updates the texture loaded in the shader
 		void UpdateTexture();
+
+		//Updates material data
+		void UpdateMaterial(Material* material);
+
+		//Update the lights
+		void UpdateLights(uint32_t currentImage);
+
+		VkDeviceSize GetMinAlignment();
+
+		//Compiles spir-v shaders from c++
+		std::vector<uint32_t> CompileShaderToSPIRV(const std::string& shaderSource, const char* shaderName, shaderc_shader_kind shaderType);
 	};
 }

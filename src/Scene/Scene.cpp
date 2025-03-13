@@ -13,7 +13,7 @@ namespace VulkanRenderer
 		
 		newObj->SetName(objName.c_str());
 		newObj->SetID(id);
-		
+		mObjects[id] = newObj;
 		return newObj;
 	}
 	void GameObjectManager::AddGameObject(GameObject* obj)

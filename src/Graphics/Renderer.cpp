@@ -11,6 +11,10 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -22,6 +26,11 @@
 #include "Core/Engine.hpp"
 #include "Window.hpp"
 #include "Vertex.hpp"
+#include "PushConstants.hpp"
+#include "CommandBuffer.hpp"
+#include "Material.hpp"
+#include "Scene/GameObject.hpp"
+#include "Transform/TransformComponent.hpp"
 #include "Renderer.hpp"
 
 #undef min
@@ -57,6 +66,7 @@ namespace
 
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	const uint32_t MAX_BINDLESS_TEXTURES = 1000;
+	const uint32_t MAX_LIGHTS = 10;
 
 	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -138,24 +148,20 @@ namespace
 		return score;
 	}
 
-	std::vector<char> LoadShader(const char* path)
+	std::string LoadShader(const char* path)
 	{
-		std::ifstream file(path, std::ios::ate | std::ios::binary);
+		std::ifstream file(path, std::ios::binary);
 
 		if (!file.good()) 
 		{
 			throw std::runtime_error("failed to open file!");
 		}
 
-		size_t fileSize = (size_t)file.tellg();
-		std::vector<char> buffer(fileSize);
-
-		file.seekg(0);
-		file.read(buffer.data(), fileSize);
-
+		std::stringstream shaderCodeStream;
+		shaderCodeStream << file.rdbuf();
 		file.close();
 
-		return buffer;
+		return shaderCodeStream.str();
 	}
 
 	//Helper function to load the model
@@ -181,6 +187,11 @@ namespace
 					attrib.vertices[3 * index.vertex_index + 1],
 					attrib.vertices[3 * index.vertex_index + 2]
 				};
+				vertex.normal = {
+					attrib.normals[3 * index.normal_index + 0],
+					attrib.normals[3 * index.normal_index + 1],
+					attrib.normals[3 * index.normal_index + 2]
+				};
 
 				vertex.texCoord = {
 					attrib.texcoords[2 * index.texcoord_index + 0],
@@ -199,33 +210,15 @@ namespace
 		}
 	}
 
-	struct PushConstants
-	{
-		glm::mat4 model;
-		int32_t texIndex;
-	};
 	uint32_t counter = 0;
 	float lastFrame = 0.0f;
-	
-	VulkanRenderer::Camera mCamera;
-
-	void MouseCallBack(GLFWwindow* window, double xPos, double yPos)
-	{
-		//Check if the mouse button is pressed down to use the cursor movement
-		if(glfwGetMouseButton(window, 0))
-			mCamera.ProcessMouseInput(xPos, yPos);
-	}
 }
 
 namespace VulkanRenderer
 {
 	void Renderer::InitVulkan(Window* window)
 	{
-		mWindow = window;
-		//Camera Init
-		glfwSetInputMode(mWindow->GetHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		glfwSetCursorPosCallback(mWindow->GetHandle(), MouseCallBack);
-		
+		mWindow = window;		
 		CreateInstance();
 		SetupDebugMessenger();
 		CreateWindowSurface();
@@ -264,16 +257,18 @@ namespace VulkanRenderer
 		float deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
+		Camera& cam = Engine::GetInstance()->GetCamera();
+
 		//Update camera position
 		const float cameraSpeed = 5.0f * deltaTime; // adjust accordingly
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-			mCamera.OffsetCamera(cameraSpeed * mCamera.GetDirection());
+			cam.OffsetCamera(cameraSpeed * cam.GetDirection());
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-			mCamera.OffsetCamera(-cameraSpeed * mCamera.GetDirection());
+			cam.OffsetCamera(-cameraSpeed * cam.GetDirection());
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-			mCamera.OffsetCamera(-glm::normalize(glm::cross(mCamera.GetDirection(), mCamera.GetUpVector())) * cameraSpeed);
+			cam.OffsetCamera(-glm::normalize(glm::cross(cam.GetDirection(), cam.GetUpVector())) * cameraSpeed);
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-			mCamera.OffsetCamera(glm::normalize(glm::cross(mCamera.GetDirection(), mCamera.GetUpVector())) * cameraSpeed);
+			cam.OffsetCamera(glm::normalize(glm::cross(cam.GetDirection(), cam.GetUpVector())) * cameraSpeed);
 	}
 	
 	void Renderer::DrawFrame()
@@ -300,12 +295,15 @@ namespace VulkanRenderer
 		//Reset
 		vkResetFences(mDevice, 1, &mInFlightFences[mCurrentFrame]);
 		//Clear the command buffer
-		vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
+		CommandBuffer& commandBuffer = mCommandPool.GetCommandBuffer(mCurrentFrame);
+
 		//Populate the command buffer with (draw calls)
-		RecordCommandBuffer(mCommandBuffers[mCurrentFrame], imageIndex);
+		RecordCommandBuffer(commandBuffer, imageIndex);
 		
 		//Update the UBO
 		UpdateUniformBuffer(mCurrentFrame);
+		//Update the lights
+		UpdateLights(mCurrentFrame);
 
 		//Prepare for submitting the command buffer
 		VkSubmitInfo submitInfo{};
@@ -319,7 +317,7 @@ namespace VulkanRenderer
 		submitInfo.pWaitDstStageMask = waitStages;
 
 		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &mCommandBuffers[mCurrentFrame];
+		submitInfo.pCommandBuffers = &commandBuffer.GetCommandBuffer();
 
 		//Semaphore to check if it finished rendering
 		VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphores[mCurrentFrame] };
@@ -401,11 +399,8 @@ namespace VulkanRenderer
 			vkDestroySemaphore(mDevice, mRenderFinishedSemaphores[i], nullptr);
 			vkDestroyFence(mDevice, mInFlightFences[i], nullptr);
 		}
-
-		vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
-
-		vkDestroyPipeline(mDevice, mGraphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(mDevice, mPipelineLayout, nullptr);
+		mPipeline.Shutdown();
+		mCommandPool.Shutdown();
 		vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 		
 		vkDestroyDevice(mDevice, nullptr);
@@ -417,6 +412,36 @@ namespace VulkanRenderer
 
 		vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 		vkDestroyInstance(mInstance, nullptr);
+	}
+
+	VkInstance Renderer::GetInstance()
+	{
+		return mInstance;
+	}
+
+	VkPhysicalDevice Renderer::GetPhysicalDevice()
+	{
+		return mPhysicalDevice;
+	}
+
+	VkDevice Renderer::GetDevice()
+	{
+		return mDevice;
+	}
+
+	VkQueue Renderer::GetGraphicsQueue()
+	{
+		return mGraphicsQueue;
+	}
+
+	VkRenderPass Renderer::GetRenderPass()
+	{
+		return mRenderPass;
+	}
+
+	VkSampleCountFlagBits Renderer::GetMSAASampleCount()
+	{
+		return mMsaaSamples;
 	}
 
 	void Renderer::WaitIdle()
@@ -526,6 +551,19 @@ namespace VulkanRenderer
 
 	void Renderer::RemoveFromSystem(Renderable* rend)
 	{
+		auto it = std::find(mRenderables.begin(), mRenderables.end(), rend);
+		mRenderables.erase(it);
+	}
+
+	void Renderer::AddLight(Light* light)
+	{
+		mLights.push_back(light);
+	}
+
+	void Renderer::RemoveLight(Light* light)
+	{
+		auto it = std::find(mLights.begin(), mLights.end(), light);
+		mLights.erase(it);
 	}
 	
 	//Vulkan Init functions
@@ -690,86 +728,7 @@ namespace VulkanRenderer
 	
 	void Renderer::CreateGraphicsPipeline()
 	{
-		auto vertShaderCode = LoadShader("data/Shaders/vert.spv");
-		auto fragShaderCode = LoadShader("data/Shaders/frag.spv");
-
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
-		VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
-		VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
-
-		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = vertShaderModule;
-		vertShaderStageInfo.pName = "main";
-
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = fragShaderModule;
-		fragShaderStageInfo.pName = "main";
-
-		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescription.size());
-		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-		vertexInputInfo.pVertexBindingDescriptions = bindingDescription.data();
-		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-		VkPipelineViewportStateCreateInfo viewportState{};
-		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportState.viewportCount = 1;
-		viewportState.scissorCount = 1;
-
-		VkPipelineRasterizationStateCreateInfo rasterizer{};
-		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer.depthClampEnable = VK_FALSE;
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
-		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterizer.lineWidth = 1.0f;
-		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		rasterizer.depthBiasEnable = VK_FALSE;
-
-		VkPipelineMultisampleStateCreateInfo multisampling{};
-		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampling.sampleShadingEnable = VK_TRUE;
-		multisampling.minSampleShading = 0.2f;
-		multisampling.rasterizationSamples = mMsaaSamples;
-
-		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT 
-											| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_FALSE;
-
-		VkPipelineColorBlendStateCreateInfo colorBlending{};
-		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
-		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
-		colorBlending.pAttachments = &colorBlendAttachment;
-		colorBlending.blendConstants[0] = 0.0f;
-		colorBlending.blendConstants[1] = 0.0f;
-		colorBlending.blendConstants[2] = 0.0f;
-		colorBlending.blendConstants[3] = 0.0f;
-
-		std::vector<VkDynamicState> dynamicStates = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
-		};
-		VkPipelineDynamicStateCreateInfo dynamicState{};
-		dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-		dynamicState.pDynamicStates = dynamicStates.data();
+		mPipeline.Initialize(mDevice);
 
 		//Create the push constant range
 		VkPushConstantRange pushConstantRange{};
@@ -777,58 +736,11 @@ namespace VulkanRenderer
 		pushConstantRange.size = sizeof(PushConstants);
 		pushConstantRange.offset = 0;
 
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(mDescriptorSetLayouts.size());
-		pipelineLayoutInfo.pSetLayouts = mDescriptorSetLayouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = 1;
-		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange; //Tell the pipeline the push constant range
+		std::vector<VkPushConstantRange> pushConstants{pushConstantRange};
 
-		if (vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create pipeline layout!");
-		}
-		//Depth-stencil testing enabled
-		VkPipelineDepthStencilStateCreateInfo depthStencil{};
-		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depthStencil.depthTestEnable = VK_TRUE;
-		depthStencil.depthWriteEnable = VK_TRUE;
-		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-		depthStencil.depthBoundsTestEnable = VK_FALSE;
-		depthStencil.minDepthBounds = 0.0f; // Optional
-		depthStencil.maxDepthBounds = 1.0f; // Optional
-		depthStencil.stencilTestEnable = VK_FALSE;
-		depthStencil.front = {}; // Optional
-		depthStencil.back = {}; // Optional
-
-		VkGraphicsPipelineCreateInfo pipelineInfo{};
-		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.stageCount = 2;
-		pipelineInfo.pStages = shaderStages;
-
-		pipelineInfo.pVertexInputState = &vertexInputInfo;
-		pipelineInfo.pInputAssemblyState = &inputAssembly;
-		pipelineInfo.pViewportState = &viewportState;
-		pipelineInfo.pRasterizationState = &rasterizer;
-		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = nullptr; // Optional
-		pipelineInfo.pColorBlendState = &colorBlending;
-		pipelineInfo.pDynamicState = &dynamicState;
-		pipelineInfo.pDepthStencilState = &depthStencil;
-
-		pipelineInfo.layout = mPipelineLayout;
-		pipelineInfo.renderPass = mRenderPass;
-		pipelineInfo.subpass = 0;
-
-		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-		pipelineInfo.basePipelineIndex = -1; // Optional
-
-		if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create graphics pipeline!");
-		}
-
-		vkDestroyShaderModule(mDevice, fragShaderModule, nullptr);
-		vkDestroyShaderModule(mDevice, vertShaderModule, nullptr);
+		//Create the pipeline layout and the pipeline
+		mPipeline.CreatePipelineLayout(mDescriptorSetLayouts, pushConstants);
+		mPipeline.CreatePipeline(mRenderPass, pushConstantRange, mMsaaSamples);
 	}
 	
 	void Renderer::CreateRenderPass()
@@ -940,32 +852,12 @@ namespace VulkanRenderer
 	void Renderer::CreateCommandPool()
 	{
 		QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(mPhysicalDevice);
-
-		VkCommandPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-
-		if (vkCreateCommandPool(mDevice, &poolInfo, nullptr, &mCommandPool) != VK_SUCCESS) 
-		{
-			throw std::runtime_error("failed to create command pool!");
-		}
+		mCommandPool.Initialize(mDevice, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndices.graphicsFamily.value());
 	}
 	
 	void Renderer::CreateCommandBuffers()
 	{
-		mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = mCommandPool;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = static_cast<uint32_t>(mCommandBuffers.size());
-
-		if (vkAllocateCommandBuffers(mDevice, &allocInfo, mCommandBuffers.data()) != VK_SUCCESS) 
-		{
-			throw std::runtime_error("failed to allocate command buffers!");
-		}
+		mCommandPool.AllocateBuffers(MAX_FRAMES_IN_FLIGHT);
 	}
 	
 	void Renderer::CreateSyncObjects()
@@ -1050,12 +942,14 @@ namespace VulkanRenderer
 
 	void Renderer::CreateUniformBuffers()
 	{
-		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+		VkDeviceSize minAlignment = GetMinAlignment();
+		VkDeviceSize alignedSize = (sizeof(UniformBufferObject) + sizeof(MaterialData) + minAlignment - 1) & ~(minAlignment - 1);
+		VkDeviceSize bufferSize = alignedSize + sizeof(LightData) * MAX_LIGHTS;
 
 		mUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 		mUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
 		mUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
+		
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 		{
 			CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
@@ -1069,7 +963,7 @@ namespace VulkanRenderer
 	{
 		std::array<VkDescriptorPoolSize, 3> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(2 * MAX_FRAMES_IN_FLIGHT);
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
 		poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 		poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -1079,7 +973,7 @@ namespace VulkanRenderer
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(2 * MAX_FRAMES_IN_FLIGHT + 1);
+		poolInfo.maxSets = static_cast<uint32_t>(2 * MAX_FRAMES_IN_FLIGHT + 2);
 		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT; // Needed for bindless
 
 		if (vkCreateDescriptorPool(mDevice, &poolInfo, nullptr, &mDescriptorPool) != VK_SUCCESS) {
@@ -1131,21 +1025,54 @@ namespace VulkanRenderer
 			bufferInfo.offset = 0;
 			bufferInfo.range = sizeof(UniformBufferObject);
 
+			VkDescriptorBufferInfo matBufferInfo{};
+			matBufferInfo.buffer = mUniformBuffers[i];
+			matBufferInfo.offset = sizeof(UniformBufferObject);
+			matBufferInfo.range = sizeof(MaterialData);
+
+			size_t matSize = sizeof(MaterialData);
+			size_t lightSize = sizeof(LightData);
+
+			VkDeviceSize minAlignment = GetMinAlignment();
+			VkDeviceSize alignedOffset = (sizeof(UniformBufferObject) + sizeof(MaterialData) + minAlignment - 1) & ~(minAlignment - 1);
+
+			VkDescriptorBufferInfo lightBufferInfo{};
+			lightBufferInfo.buffer = mUniformBuffers[i];
+			lightBufferInfo.offset = alignedOffset;
+			lightBufferInfo.range = sizeof(LightData) * MAX_LIGHTS;
+
 			VkDescriptorImageInfo samplerInfo{};
 			samplerInfo.sampler = mTextureSampler;
 
 			//Update the descriptor sets
 			VkWriteDescriptorSet descriptorWrite{};
+			std::array<VkWriteDescriptorSet, 3> uboDescriptorWrites{};
 
 			//Update uniform buffer descriptor data
-			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrite.dstSet = mDescriptorSets[i];
-			descriptorWrite.dstBinding = 0;
-			descriptorWrite.dstArrayElement = 0;
-			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrite.descriptorCount = 1;
-			descriptorWrite.pBufferInfo = &bufferInfo;
-			vkUpdateDescriptorSets(mDevice, 1, &descriptorWrite, 0, nullptr);
+			uboDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			uboDescriptorWrites[0].dstSet = mDescriptorSets[i];
+			uboDescriptorWrites[0].dstBinding = 0;
+			uboDescriptorWrites[0].dstArrayElement = 0;
+			uboDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			uboDescriptorWrites[0].descriptorCount = 1;
+			uboDescriptorWrites[0].pBufferInfo = &bufferInfo;
+
+			uboDescriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			uboDescriptorWrites[1].dstSet = mDescriptorSets[i];
+			uboDescriptorWrites[1].dstBinding = 1;
+			uboDescriptorWrites[1].dstArrayElement = 0;
+			uboDescriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			uboDescriptorWrites[1].descriptorCount = 1;
+			uboDescriptorWrites[1].pBufferInfo = &matBufferInfo;
+
+			uboDescriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			uboDescriptorWrites[2].dstSet = mDescriptorSets[i];
+			uboDescriptorWrites[2].dstBinding = 2;
+			uboDescriptorWrites[2].dstArrayElement = 0;
+			uboDescriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			uboDescriptorWrites[2].descriptorCount = 1;
+			uboDescriptorWrites[2].pBufferInfo = &lightBufferInfo;
+			vkUpdateDescriptorSets(mDevice, static_cast<uint32_t>(uboDescriptorWrites.size()), uboDescriptorWrites.data(), 0, nullptr);
 
 			//Update texture sampler descriptor
 			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1167,6 +1094,19 @@ namespace VulkanRenderer
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
 		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		VkDescriptorSetLayoutBinding materialUboLayoutBinding{};
+		materialUboLayoutBinding.binding = 1;
+		materialUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		materialUboLayoutBinding.descriptorCount = 1;
+		materialUboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		//Specify binding for light ubo
+		VkDescriptorSetLayoutBinding lightUboLayoutBinding{};
+		lightUboLayoutBinding.binding = 2;
+		lightUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		lightUboLayoutBinding.descriptorCount = 1;
+		lightUboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 		//Specify texture sampler binding layout
 		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
@@ -1191,9 +1131,10 @@ namespace VulkanRenderer
 		VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
 		bindingFlagsInfo.pBindingFlags = &flags;
 
-		std::array<VkDescriptorSetLayoutBinding, 1> binding0 = { uboLayoutBinding };
+		std::array<VkDescriptorSetLayoutBinding, 3> binding0 = { uboLayoutBinding, materialUboLayoutBinding, lightUboLayoutBinding };
 		std::array<VkDescriptorSetLayoutBinding, 1> binding1 = { samplerLayoutBinding };
 		std::array<VkDescriptorSetLayoutBinding, 1> binding2 = { textureLayoutBinding };
+		mDescriptorSetLayouts.resize(3);
 
 		//Create the descriptor set
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -1206,6 +1147,7 @@ namespace VulkanRenderer
 		{
 			throw std::runtime_error("failed to create descriptor set layout!");
 		}
+
 		//Create sampler descriptor layout
 		layoutInfo.bindingCount = static_cast<uint32_t>(binding1.size());
 		layoutInfo.pBindings = binding1.data();
@@ -1213,6 +1155,7 @@ namespace VulkanRenderer
 		{
 			throw std::runtime_error("failed to create descriptor set layout!");
 		}
+
 		//Create image descriptor layout
 		layoutInfo.bindingCount = static_cast<uint32_t>(binding2.size());
 		layoutInfo.pBindings = binding2.data();
@@ -1363,18 +1306,11 @@ namespace VulkanRenderer
 		}
 	}
 	
-	void Renderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+	void Renderer::RecordCommandBuffer(CommandBuffer& commandBuffer, uint32_t imageIndex)
 	{
+		Camera& cam = Engine::GetInstance()->GetCamera();
 		UpdateTexture();
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0; // Optional
-		beginInfo.pInheritanceInfo = nullptr; // Optional
-
-		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) 
-		{
-			throw std::runtime_error("failed to begin recording command buffer!");
-		}
+		commandBuffer.BeginCommandBuffer();
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1393,7 +1329,7 @@ namespace VulkanRenderer
 		renderPassInfo.pClearValues = clearValues.data();
 
 		//Start recording all the commands
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		commandBuffer.BeginRenderPass(renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -1404,17 +1340,12 @@ namespace VulkanRenderer
 		{
 			//Record push constants
 			PushConstants pushConstant;
-			pushConstant.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			pushConstant.model = mRenderables.at(i)->GetOwner()->GetTransformComponent()->GetWorldTransform();
 			pushConstant.texIndex = mRenderables.at(i)->mTexIndex;
+			pushConstant.viewPos = cam.GetPosition();
 
-			vkCmdPushConstants(
-				commandBuffer,              // Command buffer
-				mPipelineLayout,            // Pipeline layout
-				VK_SHADER_STAGE_VERTEX_BIT, // Shader stage
-				0,                          // Offset
-				sizeof(PushConstants),      // Size
-				&pushConstant				// Data
-			);
+			commandBuffer.BindPushConstants(mPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, &pushConstant);
+			UpdateMaterial(mRenderables.at(i)->mMaterial);
 
 			//Temp: Create 2 model instances
 			glm::mat4 rotSca = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1425,46 +1356,33 @@ namespace VulkanRenderer
 			std::vector<InstanceData> instances = { {model0}};
 			UpdateInstanceBuffer(instances);
 
-			//Bind the pipeline
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+			commandBuffer.BindPipeline(mPipeline.GetPipeline());
 
 			//Set the viewport and scissor size
-			VkViewport viewport{};
-			viewport.x = 0.0f;
-			viewport.y = 0.0f;
-			viewport.width = static_cast<float>(mSwapChainExtent.width);
-			viewport.height = static_cast<float>(mSwapChainExtent.height);
-			viewport.minDepth = 0.0f;
-			viewport.maxDepth = 1.0f;
-			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-			VkRect2D scissor{};
-			scissor.offset = { 0, 0 };
-			scissor.extent = mSwapChainExtent;
-			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+			commandBuffer.SetViewport(0.0f, 0.0f, mSwapChainExtent, 0.0f, 1.0f, 0, 1);
+			commandBuffer.SetScissor({ 0, 0 }, mSwapChainExtent, 0, 1);
 
 			//Bind the vertex buffer
-			VkBuffer vertexBuffers[] = { mRenderables[i]->mMesh->mVertexBuffer, mInstanceBuffer};
-			VkDeviceSize offsets[] = { 0, 0 }; //Offsets are from where it starts reading each buffer
-			vkCmdBindVertexBuffers(commandBuffer, 0, 2, vertexBuffers, offsets);
-
+			std::vector<VkBuffer> vertexBuffers = { mRenderables[i]->mMesh->mVertexBuffer, mInstanceBuffer};
+			std::vector<VkDeviceSize> offsets = { 0 , 0 }; //Offsets are from where it starts reading each buffer
+			commandBuffer.BindVertexBuffer(vertexBuffers, offsets, 0);
 			//Bind the index buffer
-			vkCmdBindIndexBuffer(commandBuffer, mRenderables[i]->mMesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			
+			commandBuffer.BindIndexBuffer(mRenderables[i]->mMesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
 			//Bind the descriptor set
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescriptorSets[mCurrentFrame], 0, nullptr);
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 1, 1, &mDescriptorSets[mCurrentFrame + 2], 0, nullptr);
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 2, 1, &mDescriptorSets[4], 0, nullptr);
+			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 0, 1, &mDescriptorSets[mCurrentFrame]);		//UBO DescriptorSet
+			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 1, 1, &mDescriptorSets[mCurrentFrame + 2]);	//Sampler DesciptorSet
+			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 2, 1, &mDescriptorSets[4]);					//BindlessTexture DescriptorSet
 
-			vkCmdDrawIndexed(commandBuffer, mRenderables[i]->mMesh->mIndexCount, static_cast<uint32_t>(instances.size()), 0, 0, 0);
+			commandBuffer.DrawIndexed(mRenderables[i]->mMesh->mIndexCount, 1, 0, 0, 0);
 		}
+		//Render Imgui
+		ImGui::Render();
+		auto* renderData = ImGui::GetDrawData();
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer.GetCommandBuffer());
 
-		vkCmdEndRenderPass(commandBuffer);
-
-		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) 
-		{
-			throw std::runtime_error("failed to record command buffer!");
-		}
+		commandBuffer.EndRenderPass();
+		commandBuffer.EndCommandBuffer();
 	}
 
 	QueueFamilyIndices Renderer::FindQueueFamilies(VkPhysicalDevice device)
@@ -1614,12 +1532,12 @@ namespace VulkanRenderer
 		}
 	}
 	
-	VkShaderModule Renderer::CreateShaderModule(const std::vector<char>& code)
+	VkShaderModule Renderer::CreateShaderModule(const std::vector<uint32_t>& code)
 	{
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+		createInfo.codeSize = 4 * code.size();
+		createInfo.pCode = code.data();
 		
 		VkShaderModule shaderModule;
 
@@ -1750,9 +1668,10 @@ namespace VulkanRenderer
 
 	void Renderer::UpdateUniformBuffer(uint32_t currentImage)
 	{
+		Camera& cam = Engine::GetInstance()->GetCamera();
 		UniformBufferObject ubo{};
 	
-		ubo.view = mCamera.GetViewMatrix();
+		ubo.view = cam.GetViewMatrix();
 		ubo.proj = glm::perspective(glm::radians(45.0f), mSwapChainExtent.width / (float)mSwapChainExtent.height, 0.1f, 10.0f);
 		ubo.proj[1][1] *= -1;
 
@@ -1964,37 +1883,12 @@ namespace VulkanRenderer
 
 	VkCommandBuffer Renderer::BeginSingleTimeCommands()
 	{
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = mCommandPool;
-		allocInfo.commandBufferCount = 1;
-
-		VkCommandBuffer commandBuffer;
-		vkAllocateCommandBuffers(mDevice, &allocInfo, &commandBuffer);
-
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-		return commandBuffer;
+		return mCommandPool.BeginSingleTimeCommand();
 	}
 
 	void Renderer::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 	{
-		vkEndCommandBuffer(commandBuffer);
-		
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
-
-		vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(mGraphicsQueue);
-
-		vkFreeCommandBuffers(mDevice, mCommandPool, 1, &commandBuffer);
+		mCommandPool.EndSingleTimeCommand(commandBuffer, mGraphicsQueue);
 	}
 
 	VkFormat Renderer::FindSupportedFormats(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
@@ -2174,5 +2068,59 @@ namespace VulkanRenderer
 		descriptorWrite.pImageInfo = imageInfos.data();
 
 		vkUpdateDescriptorSets(mDevice, 1, &descriptorWrite, 0, nullptr);
+	}
+
+	void Renderer::UpdateMaterial(Material* material)
+	{
+		memcpy(static_cast<uint8_t*>(mUniformBuffersMapped[mCurrentFrame]) + sizeof(UniformBufferObject), &material->mData, sizeof(MaterialData));
+	}
+
+	void Renderer::UpdateLights(uint32_t currentImage)
+	{
+		VkDeviceSize minAlignment = GetMinAlignment();
+		VkDeviceSize alignedOffset = (sizeof(UniformBufferObject) + sizeof(MaterialData) + minAlignment - 1) & ~(minAlignment - 1);
+
+		for (uint32_t i = 0; i < mLights.size(); ++i)
+		{
+			size_t offset = alignedOffset + i * sizeof(LightData);
+			memcpy(static_cast<uint8_t*>(mUniformBuffersMapped[currentImage]) + offset, &mLights.at(i)->mData, sizeof(LightData));
+		}
+	}
+
+	VkDeviceSize Renderer::GetMinAlignment()
+	{
+		VkPhysicalDeviceProperties deviceProperties;
+		vkGetPhysicalDeviceProperties(mPhysicalDevice, &deviceProperties);
+		VkDeviceSize minAlignment = deviceProperties.limits.minUniformBufferOffsetAlignment;
+		return minAlignment;
+	}
+
+	std::vector<uint32_t> Renderer::CompileShaderToSPIRV(const std::string& shaderSource, const char* shaderName, shaderc_shader_kind shaderType)
+	{
+		shaderc::Compiler compiler;
+		shaderc::CompileOptions options;
+
+		// Enable optimization
+		options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+		// preprocess
+		shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(shaderSource, shaderType, shaderName, options);
+
+		if (preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
+		{
+			throw std::runtime_error(preprocessed.GetErrorMessage());
+		}
+
+		std::string shaderString = { preprocessed.cbegin(), preprocessed.cend() };
+
+		// Compile GLSL to SPIR-V
+		shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(shaderString, shaderType, shaderName, options);
+
+		if (module.GetCompilationStatus() != shaderc_compilation_status_success)
+		{
+			throw std::runtime_error(module.GetErrorMessage());
+		}
+
+		return { module.cbegin(), module.cend() };
 	}
 }

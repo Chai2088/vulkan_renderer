@@ -20,6 +20,8 @@ namespace VulkanRenderer
 		void SetDirection(glm::vec3 dir);
 
 		void ProcessMouseInput(double xPos, double yPos);
+		
+		void EditorDebug();
 	private:
 		glm::vec3 mPos;
 		glm::vec3 mFront;

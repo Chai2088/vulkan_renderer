@@ -3,6 +3,8 @@
 #include <glfw/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <imgui.h>
+
 #include "Camera.hpp"
 
 namespace
@@ -84,5 +86,10 @@ namespace VulkanRenderer
 		dir.y = glm::sin(radPitch);
 		dir.z = glm::sin(radYaw) * glm::cos(radPitch);
 		mFront = dir;
+	}
+	void Camera::EditorDebug()
+	{
+		ImGui::DragFloat3("Camera Pos", &mPos[0]);
+		ImGui::DragFloat3("Camera Dir", &mFront[0]);
 	}
 }

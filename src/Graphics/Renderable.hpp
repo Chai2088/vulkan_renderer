@@ -1,6 +1,7 @@
 #pragma once
 #include "Scene/Component.hpp"
 #include "RenderResources.hpp"
+#include "Material.hpp"
 
 namespace VulkanRenderer
 {

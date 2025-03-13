@@ -1,9 +1,10 @@
 #pragma once
+#include "Graphics/Renderer.hpp"		  //Renderer
 #include "Window.hpp"					  //Window
 #include "Factory.hpp"					  //Factory
-#include "Graphics/Renderer.hpp"		  //Renderer
 #include "Resources/ResourceManager.hpp"  //ResourceManager
 #include "Utils.hpp"					  //ParseIdName
+#include "ImGui/ImGuiEditor.hpp"		  //Editor
 
 #include <unordered_map>
 namespace VulkanRenderer
@@ -37,9 +38,10 @@ namespace VulkanRenderer
 		Factory& GetFactory();
 		Renderer& GetRenderer();
 		ResourceManager& GetResourceManager();
+		Camera& GetCamera();
 	protected:
 		//Singleton
-		Engine() {}
+		Engine() {};
 		Engine(const Engine&) = delete;
 		void operator=(const Engine&) = delete;
 	
@@ -49,7 +51,9 @@ namespace VulkanRenderer
 		Factory			mFactory;
 		ResourceManager mResourceManager;
 		Renderer		mRenderer;
-
+		Editor			mEditor;
+		Camera			mCamera;
+		
 		//Ids
 		std::unordered_map<std::string, uint32_t> mRegisteredIds;
 	};

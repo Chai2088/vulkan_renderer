@@ -1,5 +1,6 @@
 #include "Core/Engine.hpp"
 #include "Scene/GameObject.hpp"
+#include "Transform/TransformComponent.hpp"
 #include "Graphics/Renderable.hpp"
 #include "Resources/ResourceManager.hpp"
 #include "TestScene.hpp"
@@ -10,6 +11,7 @@ namespace VulkanRenderer
 	{
 		Engine* engine = Engine::GetInstance();
 
+		//Create a renderable object
 		GameObject* obj = NewGameObject();
 		Renderable* rd = obj->NewComp<Renderable>();
 		Mesh* mesh = engine->GetResourceManager().GetResource<Mesh>("data/Models/viking_room.obj");
@@ -19,6 +21,15 @@ namespace VulkanRenderer
 		//Create texture and assign to texture
 		rd->mMaterial = engine->GetFactory().Create<Material>();
 		rd->mMaterial->mDiffuseTexture = tex;
+		rd->mMaterial->mData.mAmbient = glm::vec3(0.1f);
 		obj->OnCreate();
+
+
+		//Create a light object
+		GameObject* lightObj = NewGameObject();
+		lightObj->NewComp<Light>();
+		lightObj->OnCreate();
+		TransformComponent* transform = lightObj->GetTransformComponent();
+		transform->SetLocalPosition(glm::vec3(10.0f));
 	}
 }
