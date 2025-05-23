@@ -23,7 +23,8 @@ namespace VulkanRenderer
 		rd->mMaterial->mDiffuseTexture = tex;
 		rd->mMaterial->mData.mAmbient = glm::vec3(0.1f);
 		obj->OnCreate();
-
+		obj->GetTransformComponent()->SetLocalPosition({0.0f, 0.0f, -5.0f});
+		obj->GetTransformComponent()->SetLocalRotation({ 90.0f, 0.0f, 0.0f });
 
 		//Create a light object
 		GameObject* lightObj = NewGameObject();

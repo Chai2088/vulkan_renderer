@@ -16,6 +16,7 @@ int main()
 	engine->Initialize();
 	scene.OnCreate();
 	scene.Initialize();
+	engine->SetScene(&scene);
 
 	engine->Run();
 

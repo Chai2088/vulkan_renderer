@@ -1,4 +1,5 @@
-#include "Core/Engine.hpp"	//Factory
+#include "Core/Engine.hpp"						//Factory
+#include "Transform/TransformComponent.hpp"		//TransformComp
 #include "Scene.hpp"		
 
 namespace VulkanRenderer
@@ -66,6 +67,14 @@ namespace VulkanRenderer
 			obj->Shutdown();
 		}
 		mObjectManager.mObjects.clear();
+	}
+	void Scene::UpdateAllTransforms()
+	{
+		for (auto& [id, obj] : mObjectManager.mObjects)
+		{
+			//TODO: Make sure all parents are updated before the childs
+			obj->GetTransformComponent()->UpdateTransforms();
+		}
 	}
 	GameObject* Scene::NewGameObject()
 	{

@@ -12,6 +12,9 @@ namespace
 	bool firstMouse = true;
 	double lastX;
 	double lastY;
+
+	double offsetX;
+	double offsetY;
 }
 namespace VulkanRenderer
 {
@@ -64,17 +67,17 @@ namespace VulkanRenderer
 			firstMouse = false;
 		}
 
-		float xOffset = xPos - lastX;
-		float yOffset = lastY - yPos;
+		offsetX = xPos - lastX;
+		offsetY = lastY - yPos;
 		lastX = xPos;
 		lastY = yPos;
 
 		float sensitivity = 0.1f;
-		xOffset *= sensitivity;
-		yOffset *= sensitivity;
+		offsetX *= sensitivity;
+		offsetY *= sensitivity;
 		
-		yaw += xOffset;
-		pitch += yOffset;
+		yaw += offsetX;
+		pitch += offsetY;
 
 		pitch = glm::clamp(pitch, -89.0f, 89.0f);
 
@@ -91,5 +94,7 @@ namespace VulkanRenderer
 	{
 		ImGui::DragFloat3("Camera Pos", &mPos[0]);
 		ImGui::DragFloat3("Camera Dir", &mFront[0]);
+		ImGui::DragFloat("Offset x:", (float*)&offsetX);
+		ImGui::DragFloat("Offset y:", (float*)&offsetY);
 	}
 }

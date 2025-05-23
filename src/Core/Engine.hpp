@@ -9,6 +9,7 @@
 #include <unordered_map>
 namespace VulkanRenderer
 {
+	class Scene;
 	class Engine
 	{
 	public:
@@ -34,6 +35,9 @@ namespace VulkanRenderer
 		//Updates all the states that are called every frame
 		void Run();
 
+		//Set the current scene
+		void SetScene(Scene* scene);
+
 		//Get the systems
 		Factory& GetFactory();
 		Renderer& GetRenderer();
@@ -53,6 +57,7 @@ namespace VulkanRenderer
 		Renderer		mRenderer;
 		Editor			mEditor;
 		Camera			mCamera;
+		Scene*			mCurrentScene;
 		
 		//Ids
 		std::unordered_map<std::string, uint32_t> mRegisteredIds;

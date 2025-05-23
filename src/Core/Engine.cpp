@@ -1,6 +1,8 @@
 #include <imgui.h>
 #include <imgui_impl_vulkan.h>
 #include <imgui_impl_glfw.h>
+
+#include "Scene/Scene.hpp"
 #include "Engine.hpp"
 namespace
 {
@@ -37,7 +39,9 @@ namespace VulkanRenderer
 	void Engine::Update()
 	{
 		mEditor.BeginFrame();
+		mCurrentScene->UpdateAllTransforms();
 		mRenderer.Update(); 
+		
 		ImGuiIO& io = ImGui::GetIO();
 		double mouse_x, mouse_y;
 		glfwGetCursorPos(mWindow.GetHandle(), &mouse_x, &mouse_y);
@@ -77,6 +81,10 @@ namespace VulkanRenderer
 
 			glfwPollEvents();
 		}
+	}
+	void Engine::SetScene(Scene* scene)
+	{
+		mCurrentScene = scene;
 	}
 	Factory& Engine::GetFactory()
 	{

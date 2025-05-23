@@ -19,11 +19,11 @@ namespace VulkanRenderer
 	}
 	void TransformComponent::Initialize()
 	{
-		mParentTransform = GetOwner()->GetTransformComponent();
+		//mParentTransform = GetOwner()->GetTransformComponent();
 	}
 	void TransformComponent::UpdateTransforms()
 	{
-		if (GetOwner() == nullptr)
+		if (mParentTransform == nullptr)
 		{
 			mWorld = mLocal;
 		}
@@ -37,7 +37,7 @@ namespace VulkanRenderer
 	}
 	void TransformComponent::UpdatePosition()
 	{
-		if (GetOwner() != nullptr)
+		if (mParentTransform != nullptr)
 		{
 			mWorld.mPosition = (mParentTransform->mWorld.mScale * mLocal.mPosition) + mParentTransform->mWorld.mPosition;
 		}
@@ -49,7 +49,7 @@ namespace VulkanRenderer
 	}
 	void TransformComponent::UpdateRotation()
 	{
-		if (GetOwner() != nullptr)
+		if (mParentTransform != nullptr)
 		{
 			mWorld.mScale = mParentTransform->mWorld.mScale * mLocal.mScale;
 		}
@@ -60,7 +60,7 @@ namespace VulkanRenderer
 	}
 	void TransformComponent::UpdateScale()
 	{
-		if (GetOwner() != nullptr)
+		if (mParentTransform != nullptr)
 		{
 			mWorld.mRotation = mParentTransform->mWorld.mRotation + mLocal.mRotation;
 		}

@@ -26,9 +26,12 @@ namespace VulkanRenderer
 		void Initialize();
 		void Shutdown();
 
+		void UpdateAllTransforms();
+
 		GameObject* NewGameObject();
 		void AddGameObject(GameObject* obj);
 		void RemoveObject(uint32_t id);
+
 	private:
 		GameObjectManager mObjectManager;
 	};
