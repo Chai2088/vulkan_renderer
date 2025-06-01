@@ -12,7 +12,7 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(vulkan REQUIRED)
 find_package(Stb REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
-find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+find_package(unofficial-shaderc CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(imguizmo CONFIG REQUIRED)
@@ -37,17 +37,7 @@ add_custom_command(
 
 # TODO: Add tests and install targets if needed.
 target_link_libraries(vulkan_renderer PRIVATE glm::glm glfw Vulkan::Vulkan tinyobjloader::tinyobjloader nlohmann_json::nlohmann_json)
+target_link_libraries(vulkan_renderer PRIVATE unofficial::shaderc::shaderc)
 target_link_libraries(vulkan_renderer PRIVATE imgui::imgui imguizmo::imguizmo)
 target_include_directories(vulkan_renderer PRIVATE ${Stb_INCLUDE_DIR})
 target_include_directories(vulkan_renderer PRIVATE ${CMAKE_SOURCE_DIR}/src)
-
-# the debug version of shaderc doesn't ship with .pdb files in the VulkanSDK
-# therefore supress the warning about missing pdb files
-target_link_options(vulkan_renderer PUBLIC "/ignore:4099")
-target_link_libraries(vulkan_renderer PUBLIC ${Vulkan_LIBRARIES})
-string(REPLACE ".lib" "d.lib" SHADERC_DEBUG ${Vulkan_shaderc_combined_LIBRARY})
-
-target_link_libraries(vulkan_renderer PUBLIC      
-    debug ${SHADERC_DEBUG}  
-    optimized ${Vulkan_shaderc_combined_LIBRARY})
-target_include_directories(vulkan_renderer PUBLIC ${Vulkan_INCLUDE_DIR})

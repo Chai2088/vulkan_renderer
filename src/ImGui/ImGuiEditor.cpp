@@ -42,8 +42,8 @@ namespace VulkanRenderer
         initInfo.MSAASamples = msaaCount;
         initInfo.Allocator = nullptr;
         initInfo.CheckVkResultFn = nullptr;
-
-        ImGui_ImplVulkan_Init(&initInfo, renderPass); // Render pass will be set later
+        initInfo.RenderPass = renderPass;
+        ImGui_ImplVulkan_Init(&initInfo); // Render pass will be set later
         ImGui_ImplVulkan_CreateFontsTexture();
 	}
     void Editor::BeginFrame()
