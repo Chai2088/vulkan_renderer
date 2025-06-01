@@ -10,8 +10,8 @@ namespace
 	{
 		VulkanRenderer::Camera& cam = VulkanRenderer::Engine::GetInstance()->GetCamera();
 		ImGuiIO& io = ImGui::GetIO();
-		if (!io.WantCaptureMouse && glfwGetMouseButton(window, 0) == GLFW_PRESS)
-			cam.ProcessMouseInput(xPos, yPos);
+		if (!io.WantCaptureMouse)
+			cam.ProcessMouseInput(xPos, yPos, glfwGetMouseButton(window, 0));
 	}
 }
 namespace VulkanRenderer

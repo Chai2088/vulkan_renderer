@@ -5,6 +5,8 @@
 
 #include <imgui.h>
 
+#include <iostream>
+
 #include "Camera.hpp"
 
 namespace
@@ -25,6 +27,7 @@ namespace VulkanRenderer
 		mUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 		yaw = -90.0f;
+		pitch = 0.0f;
 	}
 	Camera::Camera(glm::vec3 pos, glm::vec3 dir) : mPos(pos), mFront(dir)
 	{
@@ -58,8 +61,9 @@ namespace VulkanRenderer
 	{
 		mFront = dir;
 	}
-	void Camera::ProcessMouseInput(double xPos, double yPos)
+	void Camera::ProcessMouseInput(double xPos, double yPos, bool mouseDown)
 	{
+		//Update the last position and the gets the offset
 		if (firstMouse)
 		{
 			lastX = xPos;
@@ -71,7 +75,9 @@ namespace VulkanRenderer
 		offsetY = lastY - yPos;
 		lastX = xPos;
 		lastY = yPos;
-
+		//if the mouse button is not clicked then stop here and dont move the camera
+		if (!mouseDown)
+			return;
 		float sensitivity = 0.1f;
 		offsetX *= sensitivity;
 		offsetY *= sensitivity;
