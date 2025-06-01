@@ -4,7 +4,7 @@
 
 namespace VulkanRenderer
 {
-	Renderable::Renderable()
+	Renderable::Renderable() : mMesh(nullptr), mMaterial(nullptr)
 	{
 		//Registers the component in the factory and assigns a name and id
 		Engine::GetInstance()->GetFactory().Register<Renderable>();

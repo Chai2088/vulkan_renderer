@@ -1342,19 +1342,26 @@ namespace VulkanRenderer
 			//Record push constants
 			PushConstants pushConstant;
 			pushConstant.model = mRenderables.at(i)->GetOwner()->GetTransformComponent()->GetWorldTransform();
-			pushConstant.texIndex = mRenderables.at(i)->mTexIndex;
+			//Check if the renderable has a material, if not assign index -1
+			if (mRenderables.at(i)->mMaterial)
+				pushConstant.texIndex = mRenderables.at(i)->mTexIndex;
+			else
+				pushConstant.texIndex = -1;
 			pushConstant.viewPos = cam.GetPosition();
 
 			commandBuffer.BindPushConstants(mPipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, &pushConstant);
 			UpdateMaterial(mRenderables.at(i)->mMaterial);
 
 			//Temp: Create 2 model instances
-			glm::mat4 rotSca = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			rotSca *= glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
-
-			glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
-			glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
-			std::vector<InstanceData> instances = { {model0}};
+			//glm::mat4 rotSca = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			//rotSca *= glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+			//
+			//glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
+			//glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
+			
+			//Get the model from the renderable
+			glm::mat4 model = mRenderables.at(i)->GetOwner()->GetTransformComponent()->GetWorldTransform();
+			std::vector<InstanceData> instances = { {model}};
 			UpdateInstanceBuffer(instances);
 
 			commandBuffer.BindPipeline(mPipeline.GetPipeline());
@@ -2051,12 +2058,22 @@ namespace VulkanRenderer
 	{
 		std::vector<VkDescriptorImageInfo> imageInfos(MAX_BINDLESS_TEXTURES);
 		//TODO: renderables can share textures so get all the texture references
+		uint32_t j = 0;
 		for (uint32_t i = 0; i < mRenderables.size(); ++i)
 		{
-			//Stores the textures in an array to prepare for rendering
-			imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfos[i].imageView = mRenderables[i]->mMaterial->mDiffuseTexture->mTextureImageView;
-			mRenderables[i]->mTexIndex = i;
+			//Check if the renderable has a material
+			if (mRenderables[i]->mMaterial == nullptr)
+			{
+				mRenderables[i]->mTexIndex = -1;
+			}
+			else
+			{
+				//Stores the textures in an array to prepare for rendering
+				imageInfos[j].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfos[j].imageView = mRenderables[i]->mMaterial->mDiffuseTexture->mTextureImageView;
+				j++;
+				mRenderables[i]->mTexIndex = i;
+			}
 		}
 
 		VkWriteDescriptorSet descriptorWrite{};
@@ -2065,7 +2082,7 @@ namespace VulkanRenderer
 		descriptorWrite.dstBinding = 0;
 		descriptorWrite.dstArrayElement = 0;
 		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		descriptorWrite.descriptorCount = static_cast<uint32_t>(mRenderables.size());
+		descriptorWrite.descriptorCount = j;
 		descriptorWrite.pImageInfo = imageInfos.data();
 
 		vkUpdateDescriptorSets(mDevice, 1, &descriptorWrite, 0, nullptr);
@@ -2073,6 +2090,9 @@ namespace VulkanRenderer
 
 	void Renderer::UpdateMaterial(Material* material)
 	{
+		//Sanity check
+		if (material == nullptr)
+			return;
 		memcpy(static_cast<uint8_t*>(mUniformBuffersMapped[mCurrentFrame]) + sizeof(UniformBufferObject), &material->mData, sizeof(MaterialData));
 	}
 

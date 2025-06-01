@@ -73,10 +73,10 @@ namespace VulkanRenderer
 	{
 		//Compute the world matrix
 		glm::mat4 world = glm::scale(glm::mat4(1.0f), mWorld.mScale);
-		glm::rotate(world, mWorld.mRotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-		glm::rotate(world, mWorld.mRotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::rotate(world, mWorld.mRotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-		glm::translate(world, mWorld.mPosition);
+		world = glm::rotate(world, mWorld.mRotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+		world = glm::rotate(world, mWorld.mRotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		world = glm::rotate(world, mWorld.mRotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+		world = glm::translate(world, mWorld.mPosition);
 		return world;
 	}
 

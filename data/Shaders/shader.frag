@@ -36,7 +36,7 @@ layout(set = 0, binding = 2) uniform LightDataArray
 layout(set = 1, binding = 0) uniform sampler mSampler;
 layout(set = 2, binding = 0) uniform texture2D mTextures[];
 
-void main() 
+vec4 ComputeLightingValue()
 {
     Light curLight = lightArray.lights[0];
     vec3 nrm = normalize(fragNormal);
@@ -49,5 +49,14 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32);
     vec3 specColor = spec * curLight.color;
     vec3 lightCoeff = amb + diffColor + specColor;
-    outColor = vec4(lightCoeff, 1.0f) * texture(sampler2D(mTextures[nonuniformEXT(texId)], mSampler), fragTexCoord); 
+    return vec4(lightCoeff, 1.0f) * texture(sampler2D(mTextures[nonuniformEXT(texId)], mSampler), fragTexCoord); 
+}
+
+
+void main() 
+{
+    if(texId != -1)
+        outColor = ComputeLightingValue();
+    else
+        outColor = vec4(fragColor, 1.0f);
 }

@@ -28,9 +28,15 @@ namespace VulkanRenderer
 
 		//Create a light object
 		GameObject* lightObj = NewGameObject();
-		lightObj->NewComp<Light>();
+		Light* light = lightObj->NewComp<Light>();
+		light->mData.mIntensity = 100;
 		lightObj->OnCreate();
 		TransformComponent* transform = lightObj->GetTransformComponent();
-		transform->SetLocalPosition(glm::vec3(10.0f));
+		transform->SetLocalPosition(glm::vec3(50.0f));
+		transform->SetLocalScale(glm::vec3(0.1f));
+		//Add a renderable and assign a sphere model
+		rd = lightObj->NewComp<Renderable>();
+		mesh = engine->GetResourceManager().GetResource<Mesh>("data/Models/wooden_sphere.obj");
+		rd->mMesh = mesh;
 	}
 }
