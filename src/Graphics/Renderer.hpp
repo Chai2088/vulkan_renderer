@@ -27,6 +27,7 @@ namespace VulkanRenderer
 		alignas(16) glm::mat4 view;
 		alignas(16) glm::mat4 proj;
 		alignas(16) glm::vec3 viewPos;
+		int32_t lightCount;
 	};
 
 	struct QueueFamilyIndices

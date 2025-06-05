@@ -17,7 +17,7 @@ namespace VulkanRenderer
 		//Registers the component in the factory and assigns a name and id
 		Engine::GetInstance()->GetFactory().Register<Renderable>();
 		mId = Engine::GetInstance()->AssignComponentId<Renderable>();
-		mName = "Renderable";
+		mName = Engine::GetInstance()->AssignComponentName<Renderable>();
 	}
 	void Renderable::OnCreate()
 	{

@@ -25,6 +25,11 @@ namespace VulkanRenderer
 
 			return mRegisteredIds.at(idName);
 		}
+		template<typename T>
+		std::string AssignComponentName()
+		{
+			return ParseIDName(typeid(T).name());
+		}
 
 		//System states
 		void Initialize();

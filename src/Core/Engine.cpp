@@ -13,6 +13,7 @@ namespace
 		if (!io.WantCaptureMouse)
 			cam.ProcessMouseInput(xPos, yPos, glfwGetMouseButton(window, 0));
 	}
+
 }
 namespace VulkanRenderer
 {
@@ -38,9 +39,15 @@ namespace VulkanRenderer
 	}
 	void Engine::Update()
 	{
+		auto startTime = std::chrono::high_resolution_clock::now();
+
 		mEditor.BeginFrame();
 		mCurrentScene->UpdateAllTransforms();
 		mRenderer.Update(); 
+		//Output framerate for debug reasons
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+		ImGui::Text("Framerate: %f", 1.0f / time);
 		
 		ImGuiIO& io = ImGui::GetIO();
 		double mouse_x, mouse_y;

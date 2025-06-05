@@ -258,7 +258,7 @@ namespace VulkanRenderer
 		Camera& cam = Engine::GetInstance()->GetCamera();
 
 		//Update camera position
-		const float cameraSpeed = 50.0f * deltaTime; // adjust accordingly
+		const float cameraSpeed = 500.0f * deltaTime; // adjust accordingly
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 			cam.OffsetCamera(cameraSpeed * cam.GetDirection());
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -1359,11 +1359,6 @@ namespace VulkanRenderer
 			//Start recording all the commands
 			commandBuffer.BeginRenderPass(renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-			static auto startTime = std::chrono::high_resolution_clock::now();
-
-			auto currentTime = std::chrono::high_resolution_clock::now();
-			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
 			//UpdateMaterial(mRenderables.at(i)->mMaterial);
 
 			//Temp: Create 2 model instances
@@ -1698,8 +1693,11 @@ namespace VulkanRenderer
 		UniformBufferObject ubo{};
 	
 		ubo.view = cam.GetViewMatrix();
-		ubo.proj = glm::perspective(glm::radians(45.0f), mSwapChainExtent.width / (float)mSwapChainExtent.height, 0.1f, 1000.0f);
+		ubo.proj = glm::perspective(glm::radians(45.0f), mSwapChainExtent.width / (float)mSwapChainExtent.height, 0.1f, 5000.0f);
 		ubo.proj[1][1] *= -1;
+
+		ubo.lightCount = mLights.size();
+		ubo.viewPos = cam.GetPosition();
 
 		memcpy(mUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}

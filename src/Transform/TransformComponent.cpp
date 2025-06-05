@@ -7,6 +7,7 @@ namespace VulkanRenderer
 	Transform::Transform() :
 		mPosition(glm::vec3(0.0f)), mScale(glm::vec3(1.0f)), mRotation(glm::vec3(0.0f))
 	{
+
 	}
 	Transform::Transform(const Transform& other)
 	{
@@ -16,6 +17,10 @@ namespace VulkanRenderer
 	}
 	TransformComponent::TransformComponent() : mParentTransform(nullptr)
 	{
+		//Register, assign name and id
+		Engine::GetInstance()->GetFactory().Register<TransformComponent>();
+		mName = Engine::GetInstance()->AssignComponentName<TransformComponent>();
+		mId = Engine::GetInstance()->AssignComponentId<TransformComponent>();
 	}
 	void TransformComponent::Initialize()
 	{

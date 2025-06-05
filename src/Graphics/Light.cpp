@@ -11,6 +11,9 @@ namespace VulkanRenderer
 	}
 	Light::Light()
 	{
+		Engine::GetInstance()->GetFactory().Register<Light>();
+		mName = Engine::GetInstance()->AssignComponentName<Light>();
+		mId = Engine::GetInstance()->AssignComponentId<Light>();
 	}
 	void Light::OnCreate()
 	{

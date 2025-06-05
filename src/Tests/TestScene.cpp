@@ -24,17 +24,41 @@ namespace VulkanRenderer
 		//obj->GetTransformComponent()->SetLocalPosition({0.0f, 0.0f, -5.0f});
 		//obj->GetTransformComponent()->SetLocalRotation({ 90.0f, 0.0f, 0.0f });
 
-		//Create a light object
-		GameObject* lightObj = NewGameObject();
-		Light* light = lightObj->NewComp<Light>();
-		light->mData.mIntensity = 100;
-		lightObj->OnCreate();
-		TransformComponent* transform = lightObj->GetTransformComponent();
-		transform->SetLocalPosition(glm::vec3(50.0f));
-		transform->SetLocalScale(glm::vec3(0.1f));
-		//Add a renderable and assign a sphere model
-		Renderable* rd = lightObj->NewComp<Renderable>();
+		//Create an object
+		GameObject* obj = NewGameObject();
+		obj->OnCreate();
+		TransformComponent* transform = obj->GetTransformComponent();
+		Renderable* rd = obj->NewComp<Renderable>();
 		Model* mesh = engine->GetResourceManager().GetResource<Model>("data/Models/sponza.obj");
 		rd->mModel = mesh;
+		
+		//Create lights
+		GameObject* light0 = NewGameObject();
+		light0->OnCreate();
+
+		TransformComponent* lightTransform = light0->GetTransformComponent(); 
+		lightTransform->SetLocalPosition(glm::vec3(500.0f));
+		Light* lightComp = light0->NewComp<Light>();
+		lightComp->mData.mColor = glm::vec3(1.0f, 0.0f, 0.0f);
+		lightComp->mData.mIntensity = 1.0f;
+		lightComp->mData.mRadius = 50.0f;
+
+		//mesh = engine->GetResourceManager().GetResource<Model>("data/Models/wooden_sphere.obj");
+		//rd = light0->NewComp<Renderable>();
+		//rd->mModel = mesh;
+
+		//Create a second light
+		GameObject* light1 = NewGameObject();
+		lightComp = light1->NewComp<Light>();
+		lightComp->mData.mColor = glm::vec3(0.0f, 1.0f, 0.0f);
+		lightComp->mData.mIntensity = 1.0f;
+		lightComp->mData.mRadius = 50.0f;
+		light1->OnCreate();
+
+		lightTransform = light1->GetTransformComponent();
+		lightTransform->SetLocalPosition(glm::vec3(-500.0f));
+		//rd = light1->NewComp<Renderable>();
+		//rd->mModel = mesh;
+
 	}
 }
