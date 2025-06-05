@@ -24,8 +24,9 @@ namespace VulkanRenderer
 
 	struct UniformBufferObject
 	{
-		glm::mat4 view;
-		glm::mat4 proj;
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
+		alignas(16) glm::vec3 viewPos;
 	};
 
 	struct QueueFamilyIndices
@@ -66,6 +67,7 @@ namespace VulkanRenderer
 
 		//Resource loading
 		Mesh* LoadMesh(const char* meshPath);
+		void LoadMaterial(const char* matPath);
 		Texture* LoadTexture(const char* texPath);
 
 		//Destroying resources
@@ -78,6 +80,10 @@ namespace VulkanRenderer
 		//Register and unregister light component
 		void AddLight(Light* light);
 		void RemoveLight(Light* light);
+
+		//Create the buffers for vertices and indices
+		void CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory);
+		void CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory);
 
 	private:
 		VkInstance mInstance;
@@ -168,8 +174,6 @@ namespace VulkanRenderer
 		void CreateCommandPool();
 		void CreateCommandBuffers();
 		void CreateSyncObjects();
-		void CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory);
-		void CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory);
 		void CreateInstanceBuffer();
 		void CreateUniformBuffers();
 		void CreateDescriptorPools();

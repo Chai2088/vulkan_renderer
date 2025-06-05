@@ -26,7 +26,7 @@ namespace VulkanRenderer
 		virtual void DestroyResource(IResource* res) = 0;
 	};
 
-	struct MeshImporter : public IResourceImporter
+	struct ModelImporter : public IResourceImporter
 	{
 		IResource* ImportFromFile(const char* path) override;
 		void DestroyResource(IResource* res) override;

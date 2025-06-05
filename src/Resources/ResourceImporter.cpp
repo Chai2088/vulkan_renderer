@@ -10,18 +10,24 @@ namespace
 
 namespace VulkanRenderer
 {
-	IResource* MeshImporter::ImportFromFile(const char* path)
+	IResource* ModelImporter::ImportFromFile(const char* path)
 	{
-		TResource<Mesh>* newMesh = engine->GetFactory().Create<TResource<Mesh>>();
-		Mesh* data = engine->GetRenderer().LoadMesh(path);
-		newMesh->mRawResource = data;
-		newMesh->mPath = path;
-		return newMesh;
+		TResource<Model>* newModel = engine->GetFactory().Create<TResource<Model>>();
+		//Create a model object and load the model
+		Model* model = engine->GetFactory().Create<Model>();
+		model->LoadModel(path);
+		//Assign the model to the resource object
+		newModel->mRawResource = model;
+		return newModel;
 	}
-	void MeshImporter::DestroyResource(IResource* res)
+	void ModelImporter::DestroyResource(IResource* res)
 	{
-		Mesh* data = reinterpret_cast<Mesh*>(res->GetRawResource());
-		engine->GetRenderer().DestroyMesh(data);
+		Model* data = reinterpret_cast<Model*>(res->GetRawResource());
+		for (uint32_t i = 0; i < data->mMeshes.size(); ++i)
+		{
+			Engine::GetInstance()->GetRenderer().DestroyMesh(data->mMeshes[i]);
+		}
+
 	}
 	IResource* TextureImporter::ImportFromFile(const char* path)
 	{

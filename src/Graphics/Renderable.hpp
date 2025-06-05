@@ -1,5 +1,7 @@
 #pragma once
 #include "Scene/Component.hpp"
+#include "GraphicsPipeline.hpp"
+#include "CommandBuffer.hpp"
 #include "RenderResources.hpp"
 #include "Material.hpp"
 
@@ -12,10 +14,13 @@ namespace VulkanRenderer
 		void OnCreate() override;
 		void Initialize() override;
 		void Shutdown() override;
+		//Submit textures and materials to the shader
+		//Update the texture indices for draw
+		void PreDraw(CommandBuffer& commandBuffer, VkDescriptorSet& textureDescriptor, VkDevice device, void* uniformBufferMapped);
+		//Draw the model
+		void Draw(CommandBuffer& commandBuffer, GraphicsPipeline& pipeline);
 	
-
-		Mesh* mMesh;
-		Material* mMaterial;
+		Model* mModel;
 		bool mIsVisible;
 		int32_t mTexIndex;
 	};

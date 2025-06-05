@@ -7,7 +7,7 @@ namespace VulkanRenderer
 	{
 		Engine* engine = Engine::GetInstance();
 		//Register all the importes
-		mImporters["Mesh"] = engine->GetFactory().Create<MeshImporter>();
+		mImporters["Model"] = engine->GetFactory().Create<ModelImporter>();
 		mImporters["Texture"] = engine->GetFactory().Create<TextureImporter>();
 		mImporters["Material"] = engine->GetFactory().Create<MaterialImporter>();
 	}

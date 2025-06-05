@@ -6,19 +6,26 @@ namespace VulkanRenderer
 	struct Texture;
 	struct alignas(16) MaterialData
 	{
-		glm::vec3 mAmbient;
-		glm::vec3 mDiffuse;
-		glm::vec3 mSpecular;
+		alignas(16) glm::vec3 mAmbient;
+		alignas(16) glm::vec3 mDiffuse;
+		alignas(16) glm::vec3 mSpecular;
 		float mShininess;
+		float mIor;
+		int mIllum;
+
+		//Idx of the textures to access inside the shader
+		int32_t mAmbientTexIdx = -1;
+		int32_t mDiffuseTexIdx = -1;
+		int32_t mSpecularTexIdx = -1;
 	};
-	class Material : public ISerializable
+	class Material
 	{
 	public:
-		void StreamRead(const nlohmann::json& j) override;
-		void StreamWrite(nlohmann::json& j) const override;
 
-		//data
-		Texture* mDiffuseTexture;
 		MaterialData mData;
+		//data
+		std::string mAmbientTexName;
+		std::string mDiffuseTexName;
+		std::string mSpecularTexName;
 	};	
 }

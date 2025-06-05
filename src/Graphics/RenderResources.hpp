@@ -1,7 +1,12 @@
 #pragma once
 
+
 #include <vulkan/vulkan.hpp>
 #include <string>
+
+#include "CommandBuffer.hpp"
+#include "Material.hpp"
+
 namespace VulkanRenderer
 {
 	struct Texture
@@ -22,5 +27,17 @@ namespace VulkanRenderer
 		VkDeviceMemory mIndexBufferMemory;
 
 		uint32_t mIndexCount;
+		//Every mesh has its own material
+		uint32_t mMatIdx;
+	};
+	struct Model
+	{
+		std::vector<Mesh*> mMeshes;
+		std::vector<Material*> mMats;
+
+		//Load the model -> create all the meshes and load all the materials
+		void LoadModel(const char* filename);
+		//TODO: Take necessary input to submit render command
+		void Draw(CommandBuffer& commandBuffer);
 	};
 }

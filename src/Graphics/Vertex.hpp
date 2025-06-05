@@ -21,24 +21,24 @@ namespace VulkanRenderer
         glm::vec3 color;
         glm::vec2 texCoord;
 
-        static std::array<VkVertexInputBindingDescription, 2> getBindingDescription()
+        static std::array<VkVertexInputBindingDescription, 1> getBindingDescription()
         {
-            std::array<VkVertexInputBindingDescription, 2> bindingDescription = {};
+            std::array<VkVertexInputBindingDescription, 1> bindingDescription = {};
 
             bindingDescription[0].binding = 0;
             bindingDescription[0].stride = sizeof(Vertex);
             bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-            bindingDescription[1].binding = 1;
-            bindingDescription[1].stride = sizeof(InstanceData);
-            bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+            //bindingDescription[1].binding = 1;
+            //bindingDescription[1].stride = sizeof(InstanceData);
+            //bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
             return bindingDescription;
         }
 
-        static std::array<VkVertexInputAttributeDescription, 8> getAttributeDescriptions()
+        static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions()
         {
-            std::array<VkVertexInputAttributeDescription, 8> attributeDescriptions{};
+            std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
 
             //Position attribute
             attributeDescriptions[0].binding = 0;
@@ -64,13 +64,13 @@ namespace VulkanRenderer
             attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
             attributeDescriptions[3].offset = offsetof(Vertex, texCoord);
 
-            for (int i = 0; i < 4; ++i)
-            {
-                attributeDescriptions[4 + i].binding = 1;
-                attributeDescriptions[4 + i].location = 4 + i;  // Locations 3,4,5,6
-                attributeDescriptions[4 + i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-                attributeDescriptions[4 + i].offset = offsetof(InstanceData, model) + sizeof(glm::vec4) * i;
-            }
+            //for (int i = 0; i < 4; ++i)
+            //{
+            //    attributeDescriptions[4 + i].binding = 1;
+            //    attributeDescriptions[4 + i].location = 4 + i;  // Locations 3,4,5,6
+            //    attributeDescriptions[4 + i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            //    attributeDescriptions[4 + i].offset = offsetof(InstanceData, model) + sizeof(glm::vec4) * i;
+            //}
 
             return attributeDescriptions;
         }

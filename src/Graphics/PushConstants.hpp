@@ -6,7 +6,6 @@ namespace VulkanRenderer
 	struct PushConstants
 	{
 		alignas(16) glm::mat4 model;
-		alignas(16) glm::vec3 viewPos;
-		int32_t texIndex;
+		alignas(16) int32_t matIdx;
 	};
 }

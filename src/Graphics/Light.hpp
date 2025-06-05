@@ -8,9 +8,9 @@ namespace VulkanRenderer
 	struct alignas(16) LightData
 	{
 		LightData();
-		glm::vec3	mPosition;
-		glm::vec3	mDirection;
-		glm::vec3	mColor;
+		alignas(16) glm::vec3	mPosition;
+		alignas(16) glm::vec3	mDirection;
+		alignas(16) glm::vec3	mColor;
 		int			mType;
 		float		mIntensity;
 		float		mRadius;
