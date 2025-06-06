@@ -6,7 +6,8 @@ layout(location = 1) in vec3 fragPos;
 layout(location = 2) in vec3 fragNormal;
 layout(location = 3) in vec2 fragTexCoord;
 layout(location = 4) in flat int matIdx;
-layout(location = 5) in flat vec3 inViewPos;
+layout(location = 5) in flat int lightCount;
+layout(location = 6) in flat vec3 inViewPos;
 
 layout(location = 0) out vec4 outColor;
 
@@ -48,10 +49,10 @@ layout(set = 0, binding = 2) uniform LightDataArray
 layout(set = 1, binding = 0) uniform sampler mSampler;
 layout(set = 2, binding = 0) uniform texture2D mTextures[];
 
-vec4 ComputeLightingValue()
+vec4 ComputeLightingValue(int lightIdx)
 {
     Material curMat = materialArray.mats[matIdx];
-    Light curLight = lightArray.lights[0];
+    Light curLight = lightArray.lights[lightIdx];
 
     vec3 nrm = normalize(fragNormal);
     vec3 lightDir = normalize(curLight.position - fragPos);
@@ -91,7 +92,13 @@ vec4 ComputeLightingValue()
 void main() 
 {
     if(matIdx != -1)
-        outColor = ComputeLightingValue();
+    {
+        outColor = vec4(0.0f);
+        for(int i = 0; i < lightCount; ++i)
+        {
+            outColor += ComputeLightingValue(i);
+        }
+    }
     else
         outColor = vec4(fragColor, 1.0f);
 }

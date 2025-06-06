@@ -2,6 +2,7 @@
 #include <tiny_obj_loader.h>
 
 #include "Core/Engine.hpp"
+#include "PushConstants.hpp"
 #include "RenderResources.hpp"
 namespace
 {
@@ -26,6 +27,42 @@ namespace
 
 namespace VulkanRenderer
 {
+	Model::Model()
+	{
+		Renderer& r = Engine::GetInstance()->GetRenderer();
+		VkDeviceSize bufferSize = sizeof(InstanceData) * 10;
+
+		r.CreateBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			mInstanceBuffer,
+			mInstanceBufferMemory);
+	}
+	void Model::UpdateInstanceBuffer(VkDevice device, const std::vector<InstanceData>& instances)
+	{
+		Renderer& r = Engine::GetInstance()->GetRenderer();
+		VkDeviceSize bufferSize = sizeof(InstanceData) * instances.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+
+		r.CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer,
+			stagingBufferMemory);
+
+		// Copy data to staging buffer
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, instances.data(), bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		//Copy staging buffer to the instance buffer
+		r.CopyBuffer(stagingBuffer, mInstanceBuffer, bufferSize);
+
+		//Free memory
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferMemory, nullptr);
+	}
 	void Model::LoadModel(const char* filename)
 	{
 		tinyobj::attrib_t attrib;
@@ -90,17 +127,26 @@ namespace VulkanRenderer
 			mMeshes.push_back(mesh);
 		}
 	}
-	void Model::Draw(CommandBuffer& commandBuffer)
+	void Model::Draw(CommandBuffer& commandBuffer, GraphicsPipeline& pipeline, VkBuffer instanceBuffer, uint32_t instances)
 	{
 		for (uint32_t i = 0; i < mMeshes.size(); ++i)
 		{
+			Mesh* mesh = mMeshes[i];
+
+			//Update the push constant
+			PushConstants pushConstant{};
+			pushConstant.matIdx = mesh->mMatIdx;
+			commandBuffer.BindPushConstants(pipeline.GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, &pushConstant);
+
 			//Bind the vertex buffer
-			std::vector<VkBuffer> vertexBuffers = { mMeshes[i]->mVertexBuffer};
-			std::vector<VkDeviceSize> offsets = { 0 , 0 }; //Offsets are from where it starts reading each buffer
+			std::vector<VkBuffer> vertexBuffers = { mesh->mVertexBuffer , instanceBuffer};
+			std::vector<VkDeviceSize> offsets = { 0, 0 }; //Offsets are from where it starts reading each buffer
 			commandBuffer.BindVertexBuffer(vertexBuffers, offsets, 0);
+
 			//Bind the index buffer
-			commandBuffer.BindIndexBuffer(mMeshes[i]->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			commandBuffer.DrawIndexed(mMeshes[i]->mIndexCount, 1, 0, 0, 0);
+			commandBuffer.BindIndexBuffer(mesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			//Record draw command
+			commandBuffer.DrawIndexed(mesh->mIndexCount, instances, 0, 0, 0);
 		}
 	}
 }

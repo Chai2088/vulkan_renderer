@@ -21,7 +21,7 @@
 namespace VulkanRenderer
 {
 	class Window;
-
+	class TransformComponent;
 	struct UniformBufferObject
 	{
 		alignas(16) glm::mat4 view;
@@ -51,6 +51,7 @@ namespace VulkanRenderer
 	public:
 		void InitVulkan(Window* window);
 		void Update();
+		std::unordered_map<Model*, std::vector<TransformComponent*>> PrepareDraw();
 		void DrawFrame();
 		void Shutdown();
 		void ShutdownVulkan();
@@ -85,6 +86,11 @@ namespace VulkanRenderer
 		//Create the buffers for vertices and indices
 		void CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory);
 		void CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory);
+
+		//Create buffer helper function for staging buffers
+		void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+		void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
+		void DestroyBuffer(VkBuffer buffer, VkDeviceMemory memory);
 
 	private:
 		VkInstance mInstance;
@@ -198,10 +204,6 @@ namespace VulkanRenderer
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& code);
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-		
-		//Create buffer helper function for staging buffers
-		void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-		void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
 		
 		//Create image helper function
 		void CreateImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, 

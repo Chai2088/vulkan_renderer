@@ -27,7 +27,7 @@ namespace VulkanRenderer
 		{
 			Engine::GetInstance()->GetRenderer().DestroyMesh(data->mMeshes[i]);
 		}
-
+		Engine::GetInstance()->GetRenderer().DestroyBuffer(data->mInstanceBuffer, data->mInstanceBufferMemory);
 	}
 	IResource* TextureImporter::ImportFromFile(const char* path)
 	{

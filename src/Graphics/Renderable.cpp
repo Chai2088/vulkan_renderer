@@ -36,9 +36,6 @@ namespace VulkanRenderer
 	
 	void Renderable::PreDraw(CommandBuffer& commandBuffer, VkDescriptorSet& textureDescriptor, VkDevice device, void* uniformBufferMapped)
 	{
-		//Submit push constants
-		PushConstants pushConstant;
-		pushConstant.model = GetOwner()->GetTransformComponent()->GetWorldTransform();
 		//Update textures
 		std::vector<VkDescriptorImageInfo> imageInfos(MAX_BINDLESS_TEXTURES);
 		ResourceManager& rm = Engine::GetInstance()->GetResourceManager();
@@ -104,17 +101,21 @@ namespace VulkanRenderer
 			//Copy the material data to the UBO
 			memcpy(static_cast<uint8_t*>(uniformBufferMapped) + sizeof(UniformBufferObject) + sizeof(MaterialData) * i, &mat->mData, sizeof(MaterialData));
 		}
-		//Write the descriptor
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = textureDescriptor;
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		descriptorWrite.descriptorCount = idx;
-		descriptorWrite.pImageInfo = imageInfos.data();
+		//Update only if there is any change in the descriptor
+		if (idx > 0)
+		{
+			//Write the descriptor
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = textureDescriptor;
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+			descriptorWrite.descriptorCount = idx;
+			descriptorWrite.pImageInfo = imageInfos.data();
 
-		vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+			vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+		}
 	}
 	void Renderable::Draw(CommandBuffer& commandBuffer, GraphicsPipeline& pipeline)
 	{

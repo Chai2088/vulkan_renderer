@@ -11,6 +11,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject
     mat4 view;
     mat4 proj;
     vec3 viewPos;
+    int lightCount;
 } ubo;
 
 layout(location = 0) in vec3 inPosition;
@@ -29,15 +30,18 @@ layout(location = 1) out vec3 fragPos;
 layout(location = 2) out vec3 fragNormal;
 layout(location = 3) out vec2 fragTexCoord;
 layout(location = 4) out flat int matIdx;
-layout(location = 5) out flat vec3 outViewPos;
+layout(location = 5) out flat int lightCount;
+layout(location = 6) out flat vec3 outViewPos;
 
 void main() 
 {
-    gl_Position = ubo.proj * (ubo.view * (pushConstants.model * vec4(inPosition, 1.0)));
-    fragPos = (pushConstants.model * vec4(inPosition, 1.0)).xyz;
-    fragNormal = mat3(transpose(inverse(pushConstants.model))) * inNormal;
+    mat4 model = mat4(row0, row1, row2, row3);
+    gl_Position = ubo.proj * (ubo.view * (model * vec4(inPosition, 1.0)));
+    fragPos = (model * vec4(inPosition, 1.0)).xyz;
+    fragNormal = mat3(transpose(inverse(model))) * inNormal;
     fragColor = inColor;
     outViewPos = ubo.viewPos;
     fragTexCoord = inTexCoord;
     matIdx = pushConstants.matIdx;
+    lightCount = ubo.lightCount;
 }

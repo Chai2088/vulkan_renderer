@@ -268,6 +268,118 @@ namespace VulkanRenderer
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 			cam.OffsetCamera(glm::normalize(glm::cross(cam.GetDirection(), cam.GetUpVector())) * cameraSpeed);
 	}
+
+	std::unordered_map<Model*, std::vector<TransformComponent*>> Renderer::PrepareDraw()
+	{
+		//Update textures
+		std::vector<VkDescriptorImageInfo> imageInfos(MAX_BINDLESS_TEXTURES);
+		ResourceManager& rm = Engine::GetInstance()->GetResourceManager();
+		std::unordered_map<std::string, int> readTextures;
+		//Store this for the draw in next draw call
+		std::unordered_map<Model*, std::vector<TransformComponent*>> readModels;
+		
+		uint32_t idx = 0;
+		uint32_t matCount = 0;
+		
+		for (uint32_t j = 0; j < mRenderables.size(); ++j)
+		{
+			Model* model = mRenderables[j]->mModel;
+			if (readModels.find(model) != readModels.end())
+			{
+				//Push the transform
+				readModels[model].push_back(mRenderables[j]->GetOwner()->GetTransformComponent());
+				continue;
+			}
+			//store the transform of the model
+			readModels[model].push_back(mRenderables[j]->GetOwner()->GetTransformComponent());
+			//Fill the material buffers
+			for (uint32_t i = 0; i < model->mMats.size(); ++i)
+			{
+				Material* mat = model->mMats[i];
+				//TODO:material store the texture pointer directly instead of the name
+				if (!mat->mAmbientTexName.empty())
+				{
+					//Check if the texture was already loaded to the buffer
+					if (readTextures.find(mat->mAmbientTexName) != readTextures.end())
+					{
+						mat->mData.mAmbientTexIdx = readTextures[mat->mAmbientTexName];
+					}
+					else
+					{
+						imageInfos[idx].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+						Texture* diff = rm.GetResource<Texture>(mat->mAmbientTexName.c_str());
+						imageInfos[idx].imageView = diff->mTextureImageView;
+						mat->mData.mAmbientTexIdx = idx;
+						readTextures[mat->mAmbientTexName] = idx;
+						idx++;
+					}
+				}
+				if (!mat->mDiffuseTexName.empty())
+				{
+					//Check if the texture was already loaded to the buffer
+					if (readTextures.find(mat->mDiffuseTexName) != readTextures.end())
+					{
+						mat->mData.mDiffuseTexIdx = readTextures[mat->mDiffuseTexName];
+					}
+					else
+					{
+						imageInfos[idx].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+						Texture* diff = rm.GetResource<Texture>(mat->mDiffuseTexName.c_str());
+						imageInfos[idx].imageView = diff->mTextureImageView;
+						mat->mData.mDiffuseTexIdx = idx;
+						readTextures[mat->mDiffuseTexName] = idx;
+						idx++;
+					}
+				}
+				if (!mat->mSpecularTexName.empty())
+				{
+					//Check if the texture was already loaded to the buffer
+					if (readTextures.find(mat->mSpecularTexName) != readTextures.end())
+					{
+						mat->mData.mSpecularTexIdx = readTextures[mat->mSpecularTexName];
+					}
+					else
+					{
+						imageInfos[idx].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+						Texture* diff = rm.GetResource<Texture>(mat->mSpecularTexName.c_str());
+						imageInfos[idx].imageView = diff->mTextureImageView;
+						mat->mData.mSpecularTexIdx = idx;
+						readTextures[mat->mSpecularTexName] = idx;
+						idx++;
+					}
+				}
+
+				//Copy the material data to the UBO
+				memcpy(static_cast<uint8_t*>(mUniformBuffersMapped[mCurrentFrame]) + sizeof(UniformBufferObject) + sizeof(MaterialData) * matCount, &mat->mData, sizeof(MaterialData));
+				matCount++;
+			}
+		}	
+		//Update the instance buffer per each model
+		for (auto& m : readModels)
+		{
+			std::vector<InstanceData> instances;
+			for (auto& t : m.second)
+				instances.push_back({ t->GetWorldTransform() });
+			m.first->UpdateInstanceBuffer(mDevice, instances);
+			m.first->mInstanceCount = instances.size();
+		}
+		//Update only if there is any change in the descriptor
+		if (idx > 0)
+		{
+			//Write the descriptor
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = mDescriptorSets[4];
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+			descriptorWrite.descriptorCount = idx;
+			descriptorWrite.pImageInfo = imageInfos.data();
+
+			vkUpdateDescriptorSets(mDevice, 1, &descriptorWrite, 0, nullptr);
+		}
+		return readModels;
+	}
 	
 	void Renderer::DrawFrame()
 	{
@@ -1332,32 +1444,30 @@ namespace VulkanRenderer
 	void Renderer::RecordCommandBuffer(CommandBuffer& commandBuffer, uint32_t imageIndex)
 	{
 		Camera& cam = Engine::GetInstance()->GetCamera();
+		auto models = PrepareDraw();
+		commandBuffer.BeginCommandBuffer();
 
-		for (int i = 0; i < mRenderables.size(); ++i)
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = mRenderPass;
+		renderPassInfo.framebuffer = mSwapChainFramebuffers[imageIndex];
+
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = mSwapChainExtent;
+
+		//Clear values for color and depth-stencil
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+		commandBuffer.BeginRenderPass(renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+		//Start recording all the commands
+		for (auto& m: models)
 		{
-			commandBuffer.BeginCommandBuffer();
-
-			VkRenderPassBeginInfo renderPassInfo{};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = mRenderPass;
-			renderPassInfo.framebuffer = mSwapChainFramebuffers[imageIndex];
-
-			renderPassInfo.renderArea.offset = { 0, 0 };
-			renderPassInfo.renderArea.extent = mSwapChainExtent;
-	
-			//Clear values for color and depth-stencil
-			std::array<VkClearValue, 2> clearValues{};
-			clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-			clearValues[1].depthStencil = { 1.0f, 0 };
-
-			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-			renderPassInfo.pClearValues = clearValues.data();
-
-			//The predraw comes always before begin render pass
-			mRenderables[i]->PreDraw(commandBuffer, mDescriptorSets[4], mDevice, mUniformBuffersMapped[mCurrentFrame]);
-
-			//Start recording all the commands
-			commandBuffer.BeginRenderPass(renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 			//UpdateMaterial(mRenderables.at(i)->mMaterial);
 
@@ -1367,25 +1477,20 @@ namespace VulkanRenderer
 			//
 			//glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
 			//glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
-			
-			//Get the model from the renderable
-			glm::mat4 model = mRenderables.at(i)->GetOwner()->GetTransformComponent()->GetWorldTransform();
-			std::vector<InstanceData> instances = { {model}};
-			UpdateInstanceBuffer(instances);
-
 			commandBuffer.BindPipeline(mPipeline.GetPipeline());
 
 			//Set the viewport and scissor size
 			commandBuffer.SetViewport(0.0f, 0.0f, mSwapChainExtent, 0.0f, 1.0f, 0, 1);
 			commandBuffer.SetScissor({ 0, 0 }, mSwapChainExtent, 0, 1);
 
-			//Bind the descriptor set
+			//TODO: descpriptor set stored inside the renderables
+			//Bind the descriptor set 
 			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 0, 1, &mDescriptorSets[mCurrentFrame]);		//UBO DescriptorSet
 			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 1, 1, &mDescriptorSets[mCurrentFrame + 2]);	//Sampler DesciptorSet
 			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 2, 1, &mDescriptorSets[4]);					//BindlessTexture DescriptorSet
 			
 			//model submits render commands to the commandBuffer for each mesh it contains
-			mRenderables[i]->Draw(commandBuffer, mPipeline);
+			m.first->Draw(commandBuffer, mPipeline, m.first->mInstanceBuffer, m.first->mInstanceCount);
 
 			////TODO: Update the vertex and index buffer per mesh in model and draw indexed
 			////Bind the vertex buffer
@@ -1396,14 +1501,16 @@ namespace VulkanRenderer
 			//commandBuffer.BindIndexBuffer(mRenderables[i]->mMesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 			//commandBuffer.DrawIndexed(mRenderables[i]->mMesh->mIndexCount, 1, 0, 0, 0);
-					//Render Imgui
-			ImGui::Render();
-			auto* renderData = ImGui::GetDrawData();
-			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer.GetCommandBuffer());
 
-			commandBuffer.EndRenderPass();
-			commandBuffer.EndCommandBuffer();
+
 		}
+		//Render Imgui
+		ImGui::Render();
+		auto* renderData = ImGui::GetDrawData();
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer.GetCommandBuffer());
+
+		commandBuffer.EndRenderPass();
+		commandBuffer.EndCommandBuffer();
 	}
 
 	QueueFamilyIndices Renderer::FindQueueFamilies(VkPhysicalDevice device)
@@ -1631,6 +1738,12 @@ namespace VulkanRenderer
 		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
 		EndSingleTimeCommands(commandBuffer);
+	}
+
+	void Renderer::DestroyBuffer(VkBuffer buffer, VkDeviceMemory memory)
+	{
+		vkDestroyBuffer(mDevice, buffer, nullptr);
+		vkFreeMemory(mDevice, memory, nullptr);
 	}
 	
 	void Renderer::CreateTextureImage()
