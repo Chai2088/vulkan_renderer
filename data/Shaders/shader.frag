@@ -49,6 +49,7 @@ layout(set = 0, binding = 2) uniform LightDataArray
 layout(set = 1, binding = 0) uniform sampler mSampler;
 layout(set = 2, binding = 0) uniform texture2D mTextures[];
 
+//For now all the lights all point lights
 vec4 ComputeLightingValue(int lightIdx)
 {
     Material curMat = materialArray.mats[matIdx];
@@ -56,16 +57,23 @@ vec4 ComputeLightingValue(int lightIdx)
 
     vec3 nrm = normalize(fragNormal);
     vec3 lightDir = normalize(curLight.position - fragPos);
+    vec3 viewDir = normalize(inViewPos - fragPos);
+    vec3 halfDir = normalize(lightDir + viewDir);
+
     //Diffuse
     float diff = max(dot(nrm, lightDir), 0.0f);
     vec3 diffColor = diff * curMat.diffuse;
     //Ambient
     vec3 amb = curMat.ambient;
     //Specular
-    vec3 viewDir = normalize(inViewPos - fragPos);
     vec3 reflectDir = reflect(-lightDir, nrm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32);
+    float spec = pow(max(dot(nrm, halfDir), 0.0f), curMat.shininess);
     vec3 specColor = spec * curMat.specular;
+
+    //Attenuation
+    float distance    = length(curLight.position - fragPos);
+    float attenuation = 1.0f / (distance * distance);    
+
 
     vec4 lightCoeff = vec4(0.0f);
     //Get the ambient, diffuse and specular maps
@@ -85,7 +93,7 @@ vec4 ComputeLightingValue(int lightIdx)
         lightCoeff += vec4(specColor, 1.0f) * specularTex;
     }
 
-    return lightCoeff * vec4(curLight.color, 1.0f); 
+    return attenuation * curLight.intensity * lightCoeff * vec4(curLight.color, 1.0f); 
 }
 
 

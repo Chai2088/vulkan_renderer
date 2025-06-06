@@ -14,6 +14,7 @@ namespace VulkanRenderer
 		void OnCreate() override;
 		void Initialize() override;
 		void Shutdown() override;
+		void Edit() override;
 		//Submit textures and materials to the shader
 		//Update the texture indices for draw
 		void PreDraw(CommandBuffer& commandBuffer, VkDescriptorSet& textureDescriptor, VkDevice device, void* uniformBufferMapped);

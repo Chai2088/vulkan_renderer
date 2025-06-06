@@ -23,6 +23,7 @@ namespace VulkanRenderer
 		void OnCreate() override;
 		void Initialize() override;
 		void Shutdown() override;
+		void Edit() override;
 
 		//Serialization
 		void StreamRead(const nlohmann::json& j) override;

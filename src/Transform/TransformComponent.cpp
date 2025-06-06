@@ -77,12 +77,12 @@ namespace VulkanRenderer
 	glm::mat4 TransformComponent::GetWorldTransform()
 	{
 		//Compute the world matrix
-		glm::mat4 world = glm::scale(glm::mat4(1.0f), mWorld.mScale);
-		world = glm::rotate(world, mWorld.mRotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-		world = glm::rotate(world, mWorld.mRotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-		world = glm::rotate(world, mWorld.mRotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-		world = glm::translate(world, mWorld.mPosition);
-		return world;
+		glm::mat4 scale = glm::scale(glm::mat4(1.0f), mWorld.mScale);
+		glm::mat4 rot = glm::rotate(glm::mat4(1.0f), mWorld.mRotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+		rot *= glm::rotate(glm::mat4(1.0f), mWorld.mRotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		rot *= glm::rotate(glm::mat4(1.0f), mWorld.mRotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+		glm::mat4 trans = glm::translate(glm::mat4(1.0f), mWorld.mPosition);
+		return trans * rot * scale;
 	}
 
 	void TransformComponent::SetLocalPosition(glm::vec3 pos)

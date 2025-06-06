@@ -56,6 +56,7 @@ namespace VulkanRenderer
 		ImGui::Text("Mouse Pos: %.2f, %.2f\n", io.MousePos.x, io.MousePos.y);
 		ImGui::Text("Mouse Down: %d\n", io.MouseDown[0]);
 		ImGui::Text("Capture mouse %d", io.WantCaptureMouse);
+
 		mCamera.EditorDebug();
 	}
 	void Engine::Draw()

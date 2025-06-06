@@ -1,3 +1,5 @@
+#include <imgui.h>
+
 #include "Core/Engine.hpp"
 #include "Scene/GameObject.hpp"
 #include "Transform/TransformComponent.hpp"
@@ -27,6 +29,11 @@ namespace VulkanRenderer
 	void Light::Shutdown()
 	{
 		Engine::GetInstance()->GetRenderer().RemoveLight(this);
+	}
+	void Light::Edit()
+	{
+		ImGui::DragFloat("Intensity", &mData.mIntensity);
+		ImGui::DragFloat3("Color", &mData.mColor[0]);
 	}
 	void Light::StreamRead(const nlohmann::json& j)
 	{

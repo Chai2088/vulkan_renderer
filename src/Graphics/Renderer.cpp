@@ -267,6 +267,16 @@ namespace VulkanRenderer
 			cam.OffsetCamera(-glm::normalize(glm::cross(cam.GetDirection(), cam.GetUpVector())) * cameraSpeed);
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 			cam.OffsetCamera(glm::normalize(glm::cross(cam.GetDirection(), cam.GetUpVector())) * cameraSpeed);
+
+		//ImGui Light Debug
+		for (uint32_t i = 0; i < mLights.size(); ++i)
+		{
+			std::string stId = "Light" + std::to_string(i);
+			ImGui::PushID(stId.c_str());
+			ImGui::Text(stId.c_str());
+			mLights[i]->Edit();
+			ImGui::PopID();
+		}
 	}
 
 	std::unordered_map<Model*, std::vector<TransformComponent*>> Renderer::PrepareDraw()
@@ -1463,7 +1473,18 @@ namespace VulkanRenderer
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 		commandBuffer.BeginRenderPass(renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		
+		commandBuffer.BindPipeline(mPipeline.GetPipeline());
 
+		//Set the viewport and scissor size
+		commandBuffer.SetViewport(0.0f, 0.0f, mSwapChainExtent, 0.0f, 1.0f, 0, 1);
+		commandBuffer.SetScissor({ 0, 0 }, mSwapChainExtent, 0, 1);
+
+		//TODO: descpriptor set stored inside the renderables
+		//Bind the descriptor set 
+		commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 0, 1, &mDescriptorSets[mCurrentFrame]);		//UBO DescriptorSet
+		commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 1, 1, &mDescriptorSets[mCurrentFrame + 2]);	//Sampler DesciptorSet
+		commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 2, 1, &mDescriptorSets[4]);					//BindlessTexture DescriptorSet
 
 		//Start recording all the commands
 		for (auto& m: models)
@@ -1477,18 +1498,7 @@ namespace VulkanRenderer
 			//
 			//glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
 			//glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
-			commandBuffer.BindPipeline(mPipeline.GetPipeline());
 
-			//Set the viewport and scissor size
-			commandBuffer.SetViewport(0.0f, 0.0f, mSwapChainExtent, 0.0f, 1.0f, 0, 1);
-			commandBuffer.SetScissor({ 0, 0 }, mSwapChainExtent, 0, 1);
-
-			//TODO: descpriptor set stored inside the renderables
-			//Bind the descriptor set 
-			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 0, 1, &mDescriptorSets[mCurrentFrame]);		//UBO DescriptorSet
-			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 1, 1, &mDescriptorSets[mCurrentFrame + 2]);	//Sampler DesciptorSet
-			commandBuffer.BindDescriptorSet(mPipeline.GetPipelineLayout(), 2, 1, &mDescriptorSets[4]);					//BindlessTexture DescriptorSet
-			
 			//model submits render commands to the commandBuffer for each mesh it contains
 			m.first->Draw(commandBuffer, mPipeline, m.first->mInstanceBuffer, m.first->mInstanceCount);
 
@@ -1501,8 +1511,6 @@ namespace VulkanRenderer
 			//commandBuffer.BindIndexBuffer(mRenderables[i]->mMesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 			//commandBuffer.DrawIndexed(mRenderables[i]->mMesh->mIndexCount, 1, 0, 0, 0);
-
-
 		}
 		//Render Imgui
 		ImGui::Render();

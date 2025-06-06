@@ -32,8 +32,11 @@ namespace VulkanRenderer
 	{
 
 	}
+	void Renderable::Edit()
+	{
+		
+	}
 	//This must be called before begin renderpass ->option11: 1 renderpass per model
-	
 	void Renderable::PreDraw(CommandBuffer& commandBuffer, VkDescriptorSet& textureDescriptor, VkDevice device, void* uniformBufferMapped)
 	{
 		//Update textures
