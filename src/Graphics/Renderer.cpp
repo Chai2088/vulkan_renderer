@@ -226,6 +226,8 @@ namespace VulkanRenderer
 		CreateImageViews();
 		CreateRenderPass();
 		CreateDescriptorSetLayout();
+		CreateDescriptorPools();
+		CreateShadowPipeline();
 		CreateGraphicsPipeline();
 		CreateCommandPool();
 		CreateColorResources();
@@ -239,7 +241,6 @@ namespace VulkanRenderer
 		//CreateDummyRenderable();
 		CreateInstanceBuffer();
 		CreateUniformBuffers();
-		CreateDescriptorPools();
 		CreateDescriptorSets();
 		CreateCommandBuffers();
 		CreateSyncObjects();
@@ -520,6 +521,7 @@ namespace VulkanRenderer
 			vkDestroyFence(mDevice, mInFlightFences[i], nullptr);
 		}
 		mPipeline.Shutdown();
+		mShadowPipeline.Shutdown();
 		mCommandPool.Shutdown();
 		vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 		
@@ -886,6 +888,16 @@ namespace VulkanRenderer
 		mPipeline.CreatePipelineLayout(mDescriptorSetLayouts, pushConstants);
 		mPipeline.CreatePipeline(mRenderPass, pushConstantRange, mMsaaSamples);
 	}
+
+	void Renderer::CreateShadowPipeline()
+	{
+		mShadowPipeline.Initialize(mDevice);
+		mShadowPipeline.PrepareFrameBuffer();
+		mShadowPipeline.CreateUniformBuffer();
+		mShadowPipeline.SetDescriptorSets(mDescriptorPool);
+		mShadowPipeline.CreatePipelineLayout();
+		mShadowPipeline.CreatePipeline();
+	}
 	
 	void Renderer::CreateRenderPass()
 	{
@@ -1105,19 +1117,21 @@ namespace VulkanRenderer
 
 	void Renderer::CreateDescriptorPools()
 	{
-		std::array<VkDescriptorPoolSize, 3> poolSizes{};
+		std::array<VkDescriptorPoolSize, 4> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(3 * MAX_FRAMES_IN_FLIGHT);
-		poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(4 * MAX_FRAMES_IN_FLIGHT);
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-		poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_BINDLESS_TEXTURES);
+		poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+		poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		poolSizes[3].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_BINDLESS_TEXTURES);
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(3 * MAX_FRAMES_IN_FLIGHT + 1); // Total 7 sets 
+		poolInfo.maxSets = static_cast<uint32_t>(5 * MAX_FRAMES_IN_FLIGHT + 1); // Total 7 sets 
 																				// 2 ubo, 2 matUbo, 2 lightUbo, 2, sampler, 1 texture
 		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT; // Needed for bindless
 
@@ -1143,6 +1157,7 @@ namespace VulkanRenderer
 		{
 			throw std::runtime_error("failed to allocate descriptor sets!");
 		}
+
 
 		//Allocate the descriptor set for texture sampler
 		std::vector<VkDescriptorSetLayout> samplerLayout(MAX_FRAMES_IN_FLIGHT, mDescriptorSetLayouts[1]);
@@ -1253,6 +1268,13 @@ namespace VulkanRenderer
 		lightUboLayoutBinding.descriptorCount = 1;
 		lightUboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+		//Shadow map sampler binding layout
+		VkDescriptorSetLayoutBinding shadowMapLayoutBinding{};
+		shadowMapLayoutBinding.binding = 3;
+		shadowMapLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		shadowMapLayoutBinding.descriptorCount = 1;
+		shadowMapLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
 		//Specify texture sampler binding layout
 		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
 		samplerLayoutBinding.binding = 0;
@@ -1276,7 +1298,7 @@ namespace VulkanRenderer
 		VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT;
 		bindingFlagsInfo.pBindingFlags = &flags;
 
-		std::array<VkDescriptorSetLayoutBinding, 3> binding0 = { uboLayoutBinding, materialUboLayoutBinding, lightUboLayoutBinding };
+		std::array<VkDescriptorSetLayoutBinding, 4> binding0 = { uboLayoutBinding, materialUboLayoutBinding, lightUboLayoutBinding, shadowMapLayoutBinding };
 		std::array<VkDescriptorSetLayoutBinding, 1> binding1 = { samplerLayoutBinding };
 		std::array<VkDescriptorSetLayoutBinding, 1> binding2 = { textureLayoutBinding };
 		mDescriptorSetLayouts.resize(3);
@@ -1456,6 +1478,19 @@ namespace VulkanRenderer
 		Camera& cam = Engine::GetInstance()->GetCamera();
 		auto models = PrepareDraw();
 		commandBuffer.BeginCommandBuffer();
+
+		//Draw depth map
+		VkRenderPassBeginInfo depthPassInfo = mShadowPipeline.GetRenderPassBeginInfo();
+		commandBuffer.BeginRenderPass(depthPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		mShadowPipeline.SetupDraw(commandBuffer, mCurrentFrame);
+		//Start recording all the shadow commands
+		for (auto& m : models)
+		{
+			m.first->DrawShadow(commandBuffer, mShadowPipeline, m.first->mInstanceBuffer, m.first->mInstanceCount);
+		}
+		commandBuffer.EndRenderPass();
+
+
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1821,6 +1856,9 @@ namespace VulkanRenderer
 		ubo.viewPos = cam.GetPosition();
 
 		memcpy(mUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+		
+		//Update ubo buffer for the shadow
+
 	}
 
 	void Renderer::UpdateInstanceBuffer(const std::vector<InstanceData>& instances)
@@ -2024,6 +2062,47 @@ namespace VulkanRenderer
 		}
 
 		return imageView;
+	}
+
+	VkSampler Renderer::CreateSampler(VkFilter filter, VkSamplerMipmapMode mipMapMode, VkSamplerAddressMode addressMode, float loadBias, float anisotropy, float minLod, float maxLod, VkBorderColor borderColor)
+	{
+		VkSampler sampler;
+		VkSamplerCreateInfo samplerInfo{};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = filter;
+		samplerInfo.minFilter = filter;
+		samplerInfo.mipmapMode = mipMapMode;
+		samplerInfo.addressModeU = addressMode;
+		samplerInfo.addressModeV = addressMode;
+		samplerInfo.addressModeW = addressMode;
+		samplerInfo.mipLodBias = loadBias;
+		samplerInfo.maxAnisotropy = anisotropy;
+		samplerInfo.minLod = minLod;
+		samplerInfo.maxLod = maxLod;
+		samplerInfo.borderColor = borderColor;
+
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+		if (vkCreateSampler(mDevice, &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
+			throw std::runtime_error("Failde to create a sampler");
+		return sampler;
+	}
+
+	VkFramebuffer Renderer::CreateFramebuffer(VkRenderPass renderPass, VkImageView* attachments, int32_t attachmentCount, uint32_t width, uint32_t height)
+	{
+		VkFramebuffer framebuffer;
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = renderPass;
+		framebufferInfo.attachmentCount = attachmentCount;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = width;
+		framebufferInfo.height = height;
+		framebufferInfo.layers = 1;
+		if (vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &framebuffer) != VK_SUCCESS)
+			throw std::runtime_error("Failed to create a framebuffer");
+		return framebuffer;
 	}
 
 	VkCommandBuffer Renderer::BeginSingleTimeCommands()

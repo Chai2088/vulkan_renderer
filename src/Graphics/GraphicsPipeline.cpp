@@ -1,10 +1,11 @@
-#include "PushConstants.hpp"
-#include "Vertex.hpp"
-#include "GraphicsPipeline.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <string>
+
+#include "GraphicsUtils.hpp"
+#include "PushConstants.hpp"
+#include "Vertex.hpp"
+#include "GraphicsPipeline.hpp"
 namespace
 {
 	std::string LoadShader(const char* filename)
@@ -43,8 +44,8 @@ namespace VulkanRenderer
 	}
 	void GraphicsPipeline::CreatePipeline(const VkRenderPass& renderPass, const VkPushConstantRange& pushConstantRange, VkSampleCountFlagBits msaaSamples)
 	{
-		auto vertShaderModule = CreateShaderModule("data/Shaders/shader.vert", "vertShader", shaderc_glsl_vertex_shader);
-		auto fragShaderModule = CreateShaderModule("data/Shaders/shader.frag", "fragShader", shaderc_glsl_fragment_shader);
+		auto vertShaderModule = CreateShaderModule(mDevice, "data/Shaders/shader.vert", "vertShader", shaderc_glsl_vertex_shader);
+		auto fragShaderModule = CreateShaderModule(mDevice, "data/Shaders/shader.frag", "fragShader", shaderc_glsl_fragment_shader);
 
 		auto bindingDescription = Vertex::getBindingDescription();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
@@ -164,25 +165,6 @@ namespace VulkanRenderer
 		vkDestroyShaderModule(mDevice, fragShaderModule, nullptr);
 		vkDestroyShaderModule(mDevice, vertShaderModule, nullptr);
 	}
-	VkShaderModule GraphicsPipeline::CreateShaderModule(const char* filename, const char* name, shaderc_shader_kind shaderType)
-	{
-		auto shaderCode = LoadShader(filename);
-		auto spirVCode = CompileShaderToSPIRV(shaderCode, name, shaderType);
-
-		VkShaderModuleCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = 4 * spirVCode.size();
-		createInfo.pCode = spirVCode.data();
-
-		VkShaderModule shaderModule;
-
-		if (vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create shader module!");
-		}
-
-		return shaderModule;
-	}
 	void GraphicsPipeline::CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& layouts, std::vector<VkPushConstantRange>& pushConstantRanges)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -203,35 +185,5 @@ namespace VulkanRenderer
 	const VkPipeline& GraphicsPipeline::GetPipeline() const
 	{
 		return mGraphicsPipeline;
-	}
-	std::vector<uint32_t> GraphicsPipeline::CompileShaderToSPIRV(const std::string& shaderSource, const char* shaderName, shaderc_shader_kind shaderType)
-	{
-		shaderc::Compiler compiler;
-		shaderc::CompileOptions options;
-
-		// Enable optimization
-		options.SetOptimizationLevel(shaderc_optimization_level_performance);
-
-		// preprocess
-		shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(shaderSource, shaderType, shaderName, options);
-
-		if (preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
-		{
-			throw std::runtime_error(preprocessed.GetErrorMessage());
-		}
-
-		std::string shaderString = { preprocessed.cbegin(), preprocessed.cend() };
-
-		// Compile GLSL to SPIR-V
-		shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(shaderString, shaderType, shaderName, options);
-
-		if (module.GetCompilationStatus() != shaderc_compilation_status_success)
-		{
-			std::string errorMsg = module.GetErrorMessage();
-			std::cout << errorMsg << std::endl;
-			throw std::runtime_error(errorMsg);
-		}
-
-		return { module.cbegin(), module.cend() };
 	}
 }

@@ -1,9 +1,8 @@
 #pragma once
-
-
 #include <vulkan/vulkan.hpp>
 #include <string>
 
+#include "ShadowPipeline.hpp"
 #include "GraphicsPipeline.hpp"
 #include "CommandBuffer.hpp"
 #include "Material.hpp"
@@ -49,5 +48,6 @@ namespace VulkanRenderer
 		void LoadModel(const char* filename);
 		//TODO: Take necessary input to submit render command
 		void Draw(CommandBuffer& commandBuffer, GraphicsPipeline& pipeline, VkBuffer instanceBuffer, uint32_t instances);
+		void DrawShadow(CommandBuffer& commandBuffer, ShadowPipeline& pipeline, VkBuffer instanceBuffer, uint32_t instances);
 	};
 }

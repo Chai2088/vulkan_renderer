@@ -9,8 +9,8 @@ namespace VulkanRenderer
 	{
 		LightData();
 		alignas(16) glm::vec3	mPosition;
-		alignas(16) glm::vec3	mDirection;
 		alignas(16) glm::vec3	mColor;
+		alignas(16) glm::vec3	mDirection;
 		int			mType;
 		float		mIntensity;
 		float		mRadius;

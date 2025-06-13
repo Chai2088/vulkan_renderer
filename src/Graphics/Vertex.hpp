@@ -35,7 +35,27 @@ namespace VulkanRenderer
 
             return bindingDescription;
         }
+        static std::array<VkVertexInputAttributeDescription, 5> getSimpleAttributeDescriptions()
+        {
+            std::array<VkVertexInputAttributeDescription,5> attributeDescriptions{};
+            //Position attribute
+            attributeDescriptions[0].binding = 0;
+            attributeDescriptions[0].location = 0;
+            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+            attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
+            //model instance attribute
+            for (int i = 0; i < 4; ++i)
+            {
+                attributeDescriptions[1 + i].binding = 1;
+                attributeDescriptions[1 + i].location = 1 + i;  // Locations 1,2,3,4
+                attributeDescriptions[1 + i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                attributeDescriptions[1 + i].offset = offsetof(InstanceData, model) + sizeof(glm::vec4) * i;
+            }
+
+            return attributeDescriptions;
+
+        }
         static std::array<VkVertexInputAttributeDescription, 8> getAttributeDescriptions()
         {
             std::array<VkVertexInputAttributeDescription, 8> attributeDescriptions{};

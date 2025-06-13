@@ -40,8 +40,8 @@ namespace VulkanRenderer
 		lightTransform->SetLocalPosition(glm::vec3(500.0f, 200.0f, 0.0f));
 		lightTransform->SetLocalScale(glm::vec3(10.0f));
 		Light* lightComp = light0->NewComp<Light>();
-		lightComp->mData.mColor = glm::vec3(1.0f, 0.0f, 0.0f);
-		lightComp->mData.mIntensity = 20.0f;
+		lightComp->mData.mColor = glm::vec3(1.0f, 1.0f, 1.0f);
+		lightComp->mData.mIntensity = 200000.0f;
 		lightComp->mData.mRadius = 50.0f;
 
 		mesh = engine->GetResourceManager().GetResource<Model>("data/Models/wooden_sphere.obj");
@@ -51,8 +51,8 @@ namespace VulkanRenderer
 		//Create a second light
 		GameObject* light1 = NewGameObject();
 		lightComp = light1->NewComp<Light>();
-		lightComp->mData.mColor = glm::vec3(0.0f, 1.0f, 0.0f);
-		lightComp->mData.mIntensity = 20.0f;
+		lightComp->mData.mColor = glm::vec3(1.0f, 1.0f, 1.0f);
+		lightComp->mData.mIntensity = 200000.0f;
 		lightComp->mData.mRadius = 50.0f;
 		light1->OnCreate();
 
@@ -61,6 +61,5 @@ namespace VulkanRenderer
 		lightTransform->SetLocalScale(glm::vec3(10.0f));
 		rd = light1->NewComp<Renderable>();
 		rd->mModel = mesh;
-
 	}
 }

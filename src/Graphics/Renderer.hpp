@@ -14,6 +14,7 @@
 #include "RenderResources.hpp"
 #include "Renderable.hpp"
 #include "Camera.hpp"
+#include "ShadowPipeline.hpp"
 #include "GraphicsPipeline.hpp"
 #include "CommandPool.hpp"
 #include "Light.hpp"
@@ -92,6 +93,19 @@ namespace VulkanRenderer
 		void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
 		void DestroyBuffer(VkBuffer buffer, VkDeviceMemory memory);
 
+		//Create image helper function
+		void CreateImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+			VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+		void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel);
+		void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+		//Helper function to create an Image View
+		VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel);
+
+		//Helper function to create a image sampler
+		VkSampler CreateSampler(VkFilter filter, VkSamplerMipmapMode mipMapMode, VkSamplerAddressMode addressMode, float loadBias, float anisotropy, float minLod, float maxLod, VkBorderColor borderColor);
+		
+		VkFramebuffer CreateFramebuffer(VkRenderPass renderPass, VkImageView* attachments, int32_t attachmentCount, uint32_t width, uint32_t height);
 	private:
 		VkInstance mInstance;
 		VkSurfaceKHR mSurface;
@@ -155,6 +169,8 @@ namespace VulkanRenderer
 		
 		//Graphics Pipeline
 		GraphicsPipeline mPipeline;
+		//Shadow Pipeline
+		ShadowPipeline mShadowPipeline;
 		//Command Pool
 		CommandPool mCommandPool;
 
@@ -177,6 +193,7 @@ namespace VulkanRenderer
 		void CreateRenderPass();
 		void CreateDescriptorSetLayout();
 		void CreateGraphicsPipeline();
+		void CreateShadowPipeline();
 		void CreateFrameBuffers();
 		void CreateCommandPool();
 		void CreateCommandBuffers();
@@ -205,15 +222,6 @@ namespace VulkanRenderer
 		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& code);
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		
-		//Create image helper function
-		void CreateImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, 
-			VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-		void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevel);
-		void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-
-		//Helper function to create an Image View
-		VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel);
-
 		//Helper function to record command buffers
 		VkCommandBuffer BeginSingleTimeCommands();
 		void EndSingleTimeCommands(VkCommandBuffer commandBUffer);

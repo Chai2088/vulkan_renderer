@@ -149,4 +149,21 @@ namespace VulkanRenderer
 			commandBuffer.DrawIndexed(mesh->mIndexCount, instances, 0, 0, 0);
 		}
 	}
+	void Model::DrawShadow(CommandBuffer& commandBuffer, ShadowPipeline& pipeline, VkBuffer instanceBuffer, uint32_t instances)
+	{
+		for (uint32_t i = 0; i < mMeshes.size(); ++i)
+		{
+			Mesh* mesh = mMeshes[i];
+
+			//Bind the vertex buffer
+			std::vector<VkBuffer> vertexBuffers = { mesh->mVertexBuffer , instanceBuffer };
+			std::vector<VkDeviceSize> offsets = { 0, 0 }; //Offsets are from where it starts reading each buffer
+			commandBuffer.BindVertexBuffer(vertexBuffers, offsets, 0);
+
+			//Bind the index buffer
+			commandBuffer.BindIndexBuffer(mesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			//Record draw command
+			commandBuffer.DrawIndexed(mesh->mIndexCount, instances, 0, 0, 0);
+		}
+	}
 }

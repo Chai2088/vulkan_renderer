@@ -34,6 +34,9 @@ namespace VulkanRenderer
 	{
 		ImGui::DragFloat("Intensity", &mData.mIntensity);
 		ImGui::DragFloat3("Color", &mData.mColor[0]);
+		ImGui::DragFloat3("Direction", &mData.mDirection[0]);
+		const char* items[] = {"Point", "Directional", "Spotlight"};
+		ImGui::Combo("Type", &mData.mType, items, 3);
 	}
 	void Light::StreamRead(const nlohmann::json& j)
 	{
