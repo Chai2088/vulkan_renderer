@@ -3,11 +3,11 @@
 #include "Transform/TransformComponent.hpp"
 #include "Graphics/Renderable.hpp"
 #include "Resources/ResourceManager.hpp"
-#include "TestScene.hpp"
+#include "TestShadow.hpp"
 
 namespace VulkanRenderer
 {
-	void TestScene::OnCreate()
+	void TestShadow::OnCreate()
 	{
 		Engine* engine = Engine::GetInstance();
 
@@ -28,25 +28,24 @@ namespace VulkanRenderer
 		GameObject* obj = NewGameObject();
 		obj->OnCreate();
 		TransformComponent* transform = obj->GetTransformComponent();
-		transform->SetLocalScale(glm::vec3(1.0f, 1.0f, 1.0f));
+		transform->SetLocalScale(glm::vec3(1000.0f, 1.0f, 1000.0f));
 		Renderable* rd = obj->NewComp<Renderable>();
-		Model* mesh = engine->GetResourceManager().GetResource<Model>("data/Models/sponza.obj");
+		Model* mesh = engine->GetResourceManager().GetResource<Model>("data/Models/cube.obj");
 		rd->mModel = mesh;
-		rd->mColor = glm::vec3(1.0f, 1.0f, 1.0f);
-
+		rd->mColor = glm::vec3(0.0f, 1.0f, 1.0f);
 
 		//Create lights
 		GameObject* light0 = NewGameObject();
 		light0->OnCreate();
 
-		TransformComponent* lightTransform = light0->GetTransformComponent(); 
+		TransformComponent* lightTransform = light0->GetTransformComponent();
 		lightTransform->SetLocalPosition(glm::vec3(300.0f, 300.0f, 3.0f));
 		lightTransform->SetLocalScale(glm::vec3(10.0f));
 		Light* lightComp = light0->NewComp<Light>();
 		lightComp->mData.mColor = glm::vec3(1.0f, 1.0f, 1.0f);
 		lightComp->mData.mDirection = glm::vec3(-1.0f, -1.0f, 1.0f);
-		lightComp->mData.mIntensity = 10000.0f;
-		lightComp->mData.mType = 0;
+		lightComp->mData.mIntensity = 1.0f;
+		lightComp->mData.mType = 1;
 
 		mesh = engine->GetResourceManager().GetResource<Model>("data/Models/wooden_sphere.obj");
 		rd = light0->NewComp<Renderable>();
@@ -57,7 +56,7 @@ namespace VulkanRenderer
 		GameObject* sphere = NewGameObject();
 		sphere->OnCreate();
 		lightTransform = sphere->GetTransformComponent();
-		lightTransform->SetLocalPosition(glm::vec3(0.0f, 100.0f,0.0f));
+		lightTransform->SetLocalPosition(glm::vec3(0.0f, 100.0f, 0.0f));
 		lightTransform->SetLocalScale(glm::vec3(10.0f));
 		rd = sphere->NewComp<Renderable>();
 		rd->mModel = mesh;

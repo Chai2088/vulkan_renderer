@@ -8,6 +8,7 @@
 #include "Graphics/Renderer.hpp"
 #include "Core/Engine.hpp"
 #include "Tests/TestScene.hpp"
+#include "Tests/TestShadow.hpp"
 int main()
 {
     VulkanRenderer::Engine* engine = VulkanRenderer::Engine::GetInstance();

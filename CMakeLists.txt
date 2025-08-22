@@ -25,7 +25,7 @@ add_executable (vulkan_renderer "src/main.cpp"
                                 "src/Core/Factory.cpp" "src/Core/Engine.cpp" "src/Graphics/Renderable.cpp" 
                                 "src/Core/Utils.cpp" "src/Resources/ResourceManager.cpp" "src/Scene/Scene.cpp" 
                                 "src/Resources/ResourceImporter.cpp" "src/Tests/TestScene.cpp" "src/Graphics/GraphicsPipeline.cpp" 
-                                "src/Graphics/CommandPool.cpp" "src/Graphics/CommandBuffer.cpp" "src/Transform/TransformComponent.cpp" "src/Scene/Component.cpp"  "src/Graphics/Light.cpp" "src/ImGui/ImGuiEditor.cpp"  "src/Graphics/RenderResources.cpp" "src/Graphics/ShadowPipeline.cpp" "src/Graphics/GraphicsUtils.cpp")
+                                "src/Graphics/CommandPool.cpp" "src/Graphics/CommandBuffer.cpp" "src/Transform/TransformComponent.cpp" "src/Scene/Component.cpp"  "src/Graphics/Light.cpp" "src/ImGui/ImGuiEditor.cpp"  "src/Graphics/RenderResources.cpp" "src/Graphics/ShadowPipeline.cpp" "src/Graphics/GraphicsUtils.cpp" "src/Tests/TestShadow.cpp" "src/Tests/TestShadow.hpp")
 
 add_custom_command(
     TARGET vulkan_renderer PRE_BUILD

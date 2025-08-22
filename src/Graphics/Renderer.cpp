@@ -301,7 +301,7 @@ namespace VulkanRenderer
 			data.color = mRenderables[j]->mColor;
 			readModels[model].push_back(data);
 
-			//If the model was already read then we dont need to submit its material again
+			//If the model was already read then we dont need to create the material instance again
 			if (readModels.find(model) != readModels.end())
 			{
 				continue;
@@ -1533,28 +1533,8 @@ namespace VulkanRenderer
 		//Start recording all the commands
 		for (auto& m: models)
 		{
-
-			//UpdateMaterial(mRenderables.at(i)->mMaterial);
-
-			//Temp: Create 2 model instances
-			//glm::mat4 rotSca = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			//rotSca *= glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
-			//
-			//glm::mat4 model0 = glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.0f, 0.0f)) * rotSca;
-			//glm::mat4 model1 = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * rotSca;
-
 			//model submits render commands to the commandBuffer for each mesh it contains
 			m.first->Draw(commandBuffer, mPipeline, m.first->mInstanceBuffer, m.first->mInstanceCount);
-
-			////TODO: Update the vertex and index buffer per mesh in model and draw indexed
-			////Bind the vertex buffer
-			//std::vector<VkBuffer> vertexBuffers = { mRenderables[i]->mMesh->mVertexBuffer, mInstanceBuffer};
-			//std::vector<VkDeviceSize> offsets = { 0 , 0 }; //Offsets are from where it starts reading each buffer
-			//commandBuffer.BindVertexBuffer(vertexBuffers, offsets, 0);
-			////Bind the index buffer
-			//commandBuffer.BindIndexBuffer(mRenderables[i]->mMesh->mIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-			//commandBuffer.DrawIndexed(mRenderables[i]->mMesh->mIndexCount, 1, 0, 0, 0);
 		}
 		//Render Imgui
 		ImGui::Render();

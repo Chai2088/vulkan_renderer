@@ -51,9 +51,7 @@ layout(set = 0, binding = 3) uniform sampler2D shadowMap;
 layout(set = 1, binding = 0) uniform sampler mSampler;
 layout(set = 2, binding = 0) uniform texture2D mTextures[];
 
-float bias = 0.005f;
-
-float textureProj(vec4 shadowCoord, vec2 off, float bias)
+float textureProj(vec4 shadowCoord, vec2 off)
 {
     // Perform perspective division
     vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
@@ -74,7 +72,7 @@ float textureProj(vec4 shadowCoord, vec2 off, float bias)
     return 0.0f;
 }
 
-float filterPCF(vec4 shadowCoord, float bias)
+float filterPCF(vec4 shadowCoord)
 {
     ivec2 texDim = textureSize(shadowMap, 0);
     float scale = 1.0;
@@ -87,7 +85,7 @@ float filterPCF(vec4 shadowCoord, float bias)
     
     for (int x = -range; x <= range; x++) {
         for (int y = -range; y <= range; y++) {
-            shadowFactor += textureProj(shadowCoord, vec2(dx*x, dy*y), bias);
+            shadowFactor += textureProj(shadowCoord, vec2(dx*x, dy*y));
             count++;
         }
     }
@@ -112,8 +110,8 @@ vec4 Phong(Material mat, Light light, vec3 lightDir, int type)
     vec3 specColor = spec * mat.specular;
 
     //Attenuation
-    float distance    = length(light.position - fragPos);
-    float attenuation = 1.0f / (distance * distance);    
+    float dist    = length(light.position - fragPos);
+    float attenuation = 1.0f / (dist * dist);    
 
     vec4 lightCoeff = vec4(0.0f);
     //Get the ambient, diffuse and specular maps
@@ -126,6 +124,7 @@ vec4 Phong(Material mat, Light light, vec3 lightDir, int type)
     {
         vec4 diffuseTex = texture(sampler2D(mTextures[nonuniformEXT(mat.diffuseTexIdx)], mSampler), fragTexCoord);
         lightCoeff += vec4(diffColor, 1.0f) * diffuseTex;
+        
     }
     if(mat.specularTexIdx != -1)
     {
@@ -136,7 +135,7 @@ vec4 Phong(Material mat, Light light, vec3 lightDir, int type)
     if(type == 1)
     {
         //Perform perspective division and offset the projection coordinate to [0,1]
-        float shadow = filterPCF(lightFragPos, bias);
+        float shadow = filterPCF(lightFragPos);
 
         vec4 color = (1.0f - shadow) * light.intensity * lightCoeff * vec4(light.color, 1.0f);
         color.w = 1.0f;
@@ -174,7 +173,7 @@ void main()
     }
     else
     {
-        float shadow = textureProj(lightFragPos, vec2(0.0f, 0.0f) ,bias);
+        float shadow = textureProj(lightFragPos, vec2(0.0f, 0.0f));
         outColor = (1.0f - shadow) * vec4(fragColor, 1.0f);
     }
 }
