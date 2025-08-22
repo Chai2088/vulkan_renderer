@@ -81,6 +81,7 @@ namespace VulkanRenderer
         ImGui::DestroyContext();
 
         //destroy the descriptor pool
+        vkDestroyDescriptorSetLayout(mDevice, mImguiTextureDescriptorLayout, nullptr);
         vkDestroyDescriptorPool(mDevice, mDescriptorPool, nullptr);
     }
     void Editor::CreateImGUITextureDescriptor(VkImageView imageView, VkSampler sampler)

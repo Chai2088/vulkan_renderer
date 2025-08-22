@@ -19,9 +19,9 @@ namespace VulkanRenderer
 		void CreateDescriptorPool();
 		void CreateTextureLayout();
 	private:
-		VkDevice			mDevice;
-		VkDescriptorPool	mDescriptorPool;
-		VkDescriptorSet		mImguiTextureDescriptor = VK_NULL_HANDLE;
+		VkDevice					mDevice;
+		VkDescriptorPool			mDescriptorPool;
+		VkDescriptorSet				mImguiTextureDescriptor = VK_NULL_HANDLE;
 		VkDescriptorSetLayout		mImguiTextureDescriptorLayout;
 	};
 }

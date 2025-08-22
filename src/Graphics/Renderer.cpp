@@ -295,17 +295,17 @@ namespace VulkanRenderer
 		for (uint32_t j = 0; j < mRenderables.size(); ++j)
 		{
 			Model* model = mRenderables[j]->mModel;
+			//If the model was already read then we dont need to create the material instance again
+			if (readModels.find(model) != readModels.end())
+			{
+				continue;
+			}
 			//store the transform of the model
 			InstanceData data;
 			data.model = mRenderables[j]->GetOwner()->GetTransformComponent()->GetWorldTransform();
 			data.color = mRenderables[j]->mColor;
 			readModels[model].push_back(data);
 
-			//If the model was already read then we dont need to create the material instance again
-			if (readModels.find(model) != readModels.end())
-			{
-				continue;
-			}
 			//Fill the material buffers
 			for (uint32_t i = 0; i < model->mMats.size(); ++i)
 			{
