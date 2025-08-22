@@ -1,5 +1,6 @@
 #include "Core/Engine.hpp"
 #include "GraphicsUtils.hpp"
+#include "Light.hpp"
 #include "ShadowPipeline.hpp"
 
 namespace
@@ -7,6 +8,10 @@ namespace
 	const VkFormat offscreenDepthFormat{ VK_FORMAT_D16_UNORM };
 	constexpr int32_t shadowMapSize = 2048;
 	constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+	float depthBiasConstant = 1.25f;
+	// Slope depth bias factor, applied depending on polygon's slope
+	float depthBiasSlope = 1.75f;
+
 	//Uniform buffer for shadow map
 	struct ShadowUBO
 	{
@@ -216,7 +221,7 @@ namespace VulkanRenderer
 		rasterizer.rasterizerDiscardEnable = VK_FALSE;
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
-		rasterizer.cullMode = VK_CULL_MODE_NONE;
+		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_TRUE;
 
@@ -235,7 +240,7 @@ namespace VulkanRenderer
 		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		colorBlending.logicOpEnable = VK_FALSE;
 		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
+		colorBlending.attachmentCount = 0;
 		colorBlending.pAttachments = &colorBlendAttachment;
 		colorBlending.blendConstants[0] = 0.0f;
 		colorBlending.blendConstants[1] = 0.0f;
@@ -275,7 +280,6 @@ namespace VulkanRenderer
 		pipelineInfo.pViewportState = &viewportState;
 		pipelineInfo.pRasterizationState = &rasterizer;
 		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = nullptr; // Optional
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.pDepthStencilState = &depthStencil;
@@ -311,7 +315,7 @@ namespace VulkanRenderer
 
 		// Create sampler to sample from to depth attachment
 		// Used to sample in the fragment shader for shadowed rendering		
-		mDepthSampler = r.CreateSampler(VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0.0f, 1.0f, 0.0f, 1.0f, VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE);
+		mDepthSampler = r.CreateSampler(VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0.0f, 1.0f, 0.0f, 1.0f, VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE, VK_COMPARE_OP_LESS_OR_EQUAL);
 
 		CreateRenderPass();
 
@@ -358,15 +362,36 @@ namespace VulkanRenderer
 		return renderPassInfo;
 	}
 
+	VkDescriptorImageInfo ShadowPipeline::GetDescriptorInfo()
+	{
+		VkDescriptorImageInfo depthInfo{};
+		depthInfo.sampler = mDepthSampler;
+		depthInfo.imageView = mAttachments.imageView;
+		depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		return depthInfo;
+	}
+
 	void ShadowPipeline::SetupDraw(CommandBuffer& commandBuffer, int32_t currentFrame)
 	{
 		commandBuffer.SetViewport(0.0f, 0.0f, { (uint32_t)mWidth, (uint32_t)mHeight }, 0.0f, 1.0f, 0, 1);
 		commandBuffer.SetScissor({ 0, 0 }, { (uint32_t)mWidth, (uint32_t)mHeight }, 0, 1);
 		//Depth bias
-
-
+		commandBuffer.SetDepthBias(depthBiasConstant, depthBiasSlope);
 		commandBuffer.BindPipeline(mShadowPipeline);
 		commandBuffer.BindDescriptorSet(mPipelineLayout, 0, 1, &mDescriptorSets[currentFrame]);		//UBO DescriptorSet
+	}
+
+	glm::mat4 ShadowPipeline::UpdateUniformBuffer(Light* light, uint32_t currentFrame)
+	{
+		float h = mWidth * 0.5f;
+		glm::mat4 proj = glm::ortho(-h, h, -h, h, 1.0f, 1000.0f);
+		proj[1][1] *= -1;
+		glm::mat4 view = glm::lookAt(light->GetPosition(), light->GetPosition() + light->mData.mDirection, glm::vec3(0.0f, 1.0f, 0.0f));
+
+		ShadowUBO ubo{};
+		ubo.depthMVP = proj * view;
+		memcpy(mUniformBufferMapped[currentFrame], &ubo, sizeof(ShadowUBO));
+		return ubo.depthMVP;
 	}
 
 }

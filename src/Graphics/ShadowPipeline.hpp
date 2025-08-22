@@ -7,6 +7,7 @@
 #include "CommandBuffer.hpp"
 namespace VulkanRenderer
 {
+	class Light;
 	struct FrameBufferAttachment
 	{
 		VkImage image;
@@ -32,7 +33,9 @@ namespace VulkanRenderer
 		const VkPipelineLayout& GetPipelineLayout() const;
 		const VkPipeline& GetPipeline() const;
 		VkRenderPassBeginInfo GetRenderPassBeginInfo();
+		VkDescriptorImageInfo GetDescriptorInfo();
 		void SetupDraw(CommandBuffer& commandBuffer, int32_t currentFrame);
+		glm::mat4 UpdateUniformBuffer(Light* light, uint32_t currentFrame);
 
 	protected:
 

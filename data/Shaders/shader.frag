@@ -5,9 +5,10 @@ layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragPos;
 layout(location = 2) in vec3 fragNormal;
 layout(location = 3) in vec2 fragTexCoord;
-layout(location = 4) in flat int matIdx;
-layout(location = 5) in flat int lightCount;
-layout(location = 6) in flat vec3 inViewPos;
+layout(location = 4) in vec4 lightFragPos;
+layout(location = 5) in flat int matIdx;
+layout(location = 6) in flat int lightCount;
+layout(location = 7) in flat vec3 inViewPos;
 
 layout(location = 0) out vec4 outColor;
 
@@ -44,11 +45,55 @@ layout(set = 0, binding = 2) uniform LightDataArray
 {
     Light lights[10];
 } lightArray;
+//Depth map
 layout(set = 0, binding = 3) uniform sampler2D shadowMap;
 //Texture uniforms
 layout(set = 1, binding = 0) uniform sampler mSampler;
 layout(set = 2, binding = 0) uniform texture2D mTextures[];
 
+float bias = 0.005f;
+
+float textureProj(vec4 shadowCoord, vec2 off, float bias)
+{
+    // Perform perspective division
+    vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
+    
+    // Check if current fragment is outside light frustum
+    if(projCoords.z > 1.0 || projCoords.x < -1.0 || projCoords.x > 1.0 
+       || projCoords.y < -1.0 || projCoords.y > 1.0)
+        return 0.0f;
+
+    if ( projCoords.z > -1.0 && projCoords.z < 1.0 ) 
+	{ 
+        // Sample shadow map with offset
+        float shadowDepth = texture(shadowMap, projCoords.xy + off).r;
+        float curDepth = projCoords.z;
+        if(shadowDepth < curDepth)
+            return 1.0f;
+    }
+    return 0.0f;
+}
+
+float filterPCF(vec4 shadowCoord, float bias)
+{
+    ivec2 texDim = textureSize(shadowMap, 0);
+    float scale = 1.0;
+    float dx = scale / float(texDim.x);
+    float dy = scale / float(texDim.y);
+
+    float shadowFactor = 0.0;
+    int range = 1;
+    int count = 0;
+    
+    for (int x = -range; x <= range; x++) {
+        for (int y = -range; y <= range; y++) {
+            shadowFactor += textureProj(shadowCoord, vec2(dx*x, dy*y), bias);
+            count++;
+        }
+    }
+    
+    return shadowFactor / float(count);
+}
 
 vec4 Phong(Material mat, Light light, vec3 lightDir, int type)
 {
@@ -90,7 +135,12 @@ vec4 Phong(Material mat, Light light, vec3 lightDir, int type)
     //Check if the light is directional, if so dont apply attenuation
     if(type == 1)
     {
-        return light.intensity * lightCoeff * vec4(light.color, 1.0f); 
+        //Perform perspective division and offset the projection coordinate to [0,1]
+        float shadow = filterPCF(lightFragPos, bias);
+
+        vec4 color = (1.0f - shadow) * light.intensity * lightCoeff * vec4(light.color, 1.0f);
+        color.w = 1.0f;
+        return color; 
     }
     //If its spotlight or point light apply attenuation
     return attenuation * light.intensity * lightCoeff * vec4(light.color, 1.0f); 
@@ -102,7 +152,7 @@ vec4 ComputeLightingValue(int lightIdx)
 {
     Material curMat = materialArray.mats[matIdx];
     Light curLight = lightArray.lights[lightIdx];
-
+    
     switch(curLight.type)
     {
     case 0:
@@ -123,5 +173,8 @@ void main()
         }
     }
     else
-        outColor = vec4(fragColor, 1.0f);
+    {
+        float shadow = textureProj(lightFragPos, vec2(0.0f, 0.0f) ,bias);
+        outColor = (1.0f - shadow) * vec4(fragColor, 1.0f);
+    }
 }

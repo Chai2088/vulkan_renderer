@@ -280,14 +280,14 @@ namespace VulkanRenderer
 		}
 	}
 
-	std::unordered_map<Model*, std::vector<TransformComponent*>> Renderer::PrepareDraw()
+	std::unordered_map<Model*, std::vector<InstanceData>> Renderer::PrepareDraw()
 	{
 		//Update textures
 		std::vector<VkDescriptorImageInfo> imageInfos(MAX_BINDLESS_TEXTURES);
 		ResourceManager& rm = Engine::GetInstance()->GetResourceManager();
 		std::unordered_map<std::string, int> readTextures;
 		//Store this for the draw in next draw call
-		std::unordered_map<Model*, std::vector<TransformComponent*>> readModels;
+		std::unordered_map<Model*, std::vector<InstanceData>> readModels;
 		
 		uint32_t idx = 0;
 		uint32_t matCount = 0;
@@ -295,14 +295,17 @@ namespace VulkanRenderer
 		for (uint32_t j = 0; j < mRenderables.size(); ++j)
 		{
 			Model* model = mRenderables[j]->mModel;
+			//store the transform of the model
+			InstanceData data;
+			data.model = mRenderables[j]->GetOwner()->GetTransformComponent()->GetWorldTransform();
+			data.color = mRenderables[j]->mColor;
+			readModels[model].push_back(data);
+
+			//If the model was already read then we dont need to submit its material again
 			if (readModels.find(model) != readModels.end())
 			{
-				//Push the transform
-				readModels[model].push_back(mRenderables[j]->GetOwner()->GetTransformComponent());
 				continue;
 			}
-			//store the transform of the model
-			readModels[model].push_back(mRenderables[j]->GetOwner()->GetTransformComponent());
 			//Fill the material buffers
 			for (uint32_t i = 0; i < model->mMats.size(); ++i)
 			{
@@ -368,11 +371,8 @@ namespace VulkanRenderer
 		//Update the instance buffer per each model
 		for (auto& m : readModels)
 		{
-			std::vector<InstanceData> instances;
-			for (auto& t : m.second)
-				instances.push_back({ t->GetWorldTransform() });
-			m.first->UpdateInstanceBuffer(mDevice, instances);
-			m.first->mInstanceCount = instances.size();
+			m.first->UpdateInstanceBuffer(mDevice, m.second);
+			m.first->mInstanceCount = m.second.size();
 		}
 		//Update only if there is any change in the descriptor
 		if (idx > 0)
@@ -1204,9 +1204,11 @@ namespace VulkanRenderer
 			VkDescriptorImageInfo samplerInfo{};
 			samplerInfo.sampler = mTextureSampler;
 
+			VkDescriptorImageInfo depthInfo = mShadowPipeline.GetDescriptorInfo();
+
 			//Update the descriptor sets
 			VkWriteDescriptorSet descriptorWrite{};
-			std::array<VkWriteDescriptorSet, 3> uboDescriptorWrites{};
+			std::array<VkWriteDescriptorSet, 4> uboDescriptorWrites{};
 
 			//Update uniform buffer descriptor data
 			uboDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1232,6 +1234,15 @@ namespace VulkanRenderer
 			uboDescriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			uboDescriptorWrites[2].descriptorCount = 1;
 			uboDescriptorWrites[2].pBufferInfo = &lightBufferInfo;
+
+			//Set shadow map descriptor
+			uboDescriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			uboDescriptorWrites[3].dstSet = mDescriptorSets[i];
+			uboDescriptorWrites[3].dstBinding = 3;
+			uboDescriptorWrites[3].dstArrayElement = 0;
+			uboDescriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			uboDescriptorWrites[3].descriptorCount = 1;
+			uboDescriptorWrites[3].pImageInfo = &depthInfo;
 			vkUpdateDescriptorSets(mDevice, static_cast<uint32_t>(uboDescriptorWrites.size()), uboDescriptorWrites.data(), 0, nullptr);
 
 			//Update texture sampler descriptor
@@ -1489,8 +1500,6 @@ namespace VulkanRenderer
 			m.first->DrawShadow(commandBuffer, mShadowPipeline, m.first->mInstanceBuffer, m.first->mInstanceCount);
 		}
 		commandBuffer.EndRenderPass();
-
-
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1855,10 +1864,23 @@ namespace VulkanRenderer
 		ubo.lightCount = mLights.size();
 		ubo.viewPos = cam.GetPosition();
 
-		memcpy(mUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-		
 		//Update ubo buffer for the shadow
-
+		Light* dirLight = nullptr;
+		for (auto& l : mLights)
+		{
+			if (l->mData.mType == 1)
+			{
+				dirLight = l;
+				break;
+			}
+		}
+		if (dirLight)
+		{
+			ubo.depthMVP = mShadowPipeline.UpdateUniformBuffer(dirLight, currentImage);
+		}
+		else
+			ubo.depthMVP = glm::mat4(1.0f);
+		memcpy(mUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 
 	void Renderer::UpdateInstanceBuffer(const std::vector<InstanceData>& instances)
@@ -2064,7 +2086,7 @@ namespace VulkanRenderer
 		return imageView;
 	}
 
-	VkSampler Renderer::CreateSampler(VkFilter filter, VkSamplerMipmapMode mipMapMode, VkSamplerAddressMode addressMode, float loadBias, float anisotropy, float minLod, float maxLod, VkBorderColor borderColor)
+	VkSampler Renderer::CreateSampler(VkFilter filter, VkSamplerMipmapMode mipMapMode, VkSamplerAddressMode addressMode, float loadBias, float anisotropy, float minLod, float maxLod, VkBorderColor borderColor, VkCompareOp compareOp)
 	{
 		VkSampler sampler;
 		VkSamplerCreateInfo samplerInfo{};
@@ -2082,7 +2104,7 @@ namespace VulkanRenderer
 		samplerInfo.borderColor = borderColor;
 
 		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.compareOp = compareOp;
 
 		if (vkCreateSampler(mDevice, &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
 			throw std::runtime_error("Failde to create a sampler");

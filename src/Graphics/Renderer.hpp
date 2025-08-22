@@ -27,6 +27,7 @@ namespace VulkanRenderer
 	{
 		alignas(16) glm::mat4 view;
 		alignas(16) glm::mat4 proj;
+		alignas(16) glm::mat4 depthMVP;
 		alignas(16) glm::vec3 viewPos;
 		int32_t lightCount;
 	};
@@ -52,7 +53,7 @@ namespace VulkanRenderer
 	public:
 		void InitVulkan(Window* window);
 		void Update();
-		std::unordered_map<Model*, std::vector<TransformComponent*>> PrepareDraw();
+		std::unordered_map<Model*, std::vector<InstanceData>> PrepareDraw();
 		void DrawFrame();
 		void Shutdown();
 		void ShutdownVulkan();
@@ -103,9 +104,18 @@ namespace VulkanRenderer
 		VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevel);
 
 		//Helper function to create a image sampler
-		VkSampler CreateSampler(VkFilter filter, VkSamplerMipmapMode mipMapMode, VkSamplerAddressMode addressMode, float loadBias, float anisotropy, float minLod, float maxLod, VkBorderColor borderColor);
+		VkSampler CreateSampler(VkFilter filter, VkSamplerMipmapMode mipMapMode, VkSamplerAddressMode addressMode, float loadBias, float anisotropy, float minLod, float maxLod, VkBorderColor borderColor, VkCompareOp compareOp);
 		
 		VkFramebuffer CreateFramebuffer(VkRenderPass renderPass, VkImageView* attachments, int32_t attachmentCount, uint32_t width, uint32_t height);
+	
+	
+		//Graphics Pipeline
+		GraphicsPipeline mPipeline;
+		//Shadow Pipeline
+		ShadowPipeline mShadowPipeline;
+		//Command Pool
+		CommandPool mCommandPool;
+
 	private:
 		VkInstance mInstance;
 		VkSurfaceKHR mSurface;
@@ -167,13 +177,6 @@ namespace VulkanRenderer
 		//Antialising
 		VkSampleCountFlagBits mMsaaSamples = VK_SAMPLE_COUNT_1_BIT;
 		
-		//Graphics Pipeline
-		GraphicsPipeline mPipeline;
-		//Shadow Pipeline
-		ShadowPipeline mShadowPipeline;
-		//Command Pool
-		CommandPool mCommandPool;
-
 		//Msaa buffers
 		VkImage mColorImage;
 		VkDeviceMemory mColorImageMemory;

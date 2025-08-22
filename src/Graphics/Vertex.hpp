@@ -12,7 +12,8 @@ namespace VulkanRenderer
 {
     struct InstanceData
     {
-        glm::mat4 model;
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::vec3 color;
     };
     struct Vertex
     {
@@ -73,10 +74,10 @@ namespace VulkanRenderer
             attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
             //Color attribute
-            attributeDescriptions[2].binding = 0;
+            attributeDescriptions[2].binding = 1;
             attributeDescriptions[2].location = 2;
             attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[2].offset = offsetof(Vertex, color);
+            attributeDescriptions[2].offset = offsetof(InstanceData, color);
 
             //Texture coordinate attribute
             attributeDescriptions[3].binding = 0;

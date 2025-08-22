@@ -12,10 +12,16 @@ namespace VulkanRenderer
 		void BeginFrame();
 		void EndFrame();
 		void Shutdown();
+
+
+		void CreateImGUITextureDescriptor(VkImageView imageView, VkSampler sampler);
 	protected:
 		void CreateDescriptorPool();
+		void CreateTextureLayout();
 	private:
 		VkDevice			mDevice;
 		VkDescriptorPool	mDescriptorPool;
+		VkDescriptorSet		mImguiTextureDescriptor = VK_NULL_HANDLE;
+		VkDescriptorSetLayout		mImguiTextureDescriptorLayout;
 	};
 }

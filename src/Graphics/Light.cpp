@@ -38,6 +38,10 @@ namespace VulkanRenderer
 		const char* items[] = {"Point", "Directional", "Spotlight"};
 		ImGui::Combo("Type", &mData.mType, items, 3);
 	}
+	glm::vec3 Light::GetPosition()
+	{
+		return GetOwner()->GetTransformComponent()->GetWorldPosition();
+	}
 	void Light::StreamRead(const nlohmann::json& j)
 	{
 

@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "Window.hpp"
+#include "Core/Engine.hpp"
 #include "ImGuiEditor.hpp"
 
 namespace VulkanRenderer
@@ -45,6 +46,12 @@ namespace VulkanRenderer
         initInfo.RenderPass = renderPass;
         ImGui_ImplVulkan_Init(&initInfo); // Render pass will be set later
         ImGui_ImplVulkan_CreateFontsTexture();
+
+        //Create texture layout
+        CreateTextureLayout();
+        //Create shadow texture descriptor
+        VkDescriptorImageInfo depthInfo = Engine::GetInstance()->GetRenderer().mShadowPipeline.GetDescriptorInfo();
+        CreateImGUITextureDescriptor(depthInfo.imageView, depthInfo.sampler);
 	}
     void Editor::BeginFrame()
     {
@@ -53,6 +60,14 @@ namespace VulkanRenderer
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         ImGui::Begin("Editor");
+
+        //Debug shadow texture
+        if (mImguiTextureDescriptor != VK_NULL_HANDLE) {
+            // Convert your Vulkan descriptor set to ImTextureID
+            ImTextureID textureId = (ImTextureID)mImguiTextureDescriptor;
+            // Display the texture (adjust size as needed)
+            ImGui::Image(textureId, ImVec2(512, 512));
+        }
     }
     void Editor::EndFrame()
     {
@@ -67,6 +82,31 @@ namespace VulkanRenderer
 
         //destroy the descriptor pool
         vkDestroyDescriptorPool(mDevice, mDescriptorPool, nullptr);
+    }
+    void Editor::CreateImGUITextureDescriptor(VkImageView imageView, VkSampler sampler)
+    {
+        VkDescriptorSetAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = mDescriptorPool; // Use your existing pool
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &mImguiTextureDescriptorLayout; // You'll need to create this
+
+        vkAllocateDescriptorSets(mDevice, &allocInfo, &mImguiTextureDescriptor);
+
+        VkDescriptorImageInfo descImageInfo = {};
+        descImageInfo.sampler = sampler;
+        descImageInfo.imageView = imageView;
+        descImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet writeDesc = {};
+        writeDesc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDesc.dstSet = mImguiTextureDescriptor;
+        writeDesc.descriptorCount = 1;
+        writeDesc.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writeDesc.pImageInfo = &descImageInfo;
+        writeDesc.dstBinding = 0;
+
+        vkUpdateDescriptorSets(mDevice, 1, &writeDesc, 0, nullptr);
     }
     void Editor::CreateDescriptorPool()
     {
@@ -95,5 +135,21 @@ namespace VulkanRenderer
         {
             throw std::runtime_error("Failed to create ImGui descriptor pool!");
         }
+    }
+    void Editor::CreateTextureLayout()
+    {
+        VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1;
+
+        VkDescriptorSetLayoutBinding binding = {};
+        binding.binding = 0;
+        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binding.descriptorCount = 1;
+        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        layoutInfo.pBindings = &binding;
+
+        vkCreateDescriptorSetLayout(mDevice, &layoutInfo, nullptr, &mImguiTextureDescriptorLayout);
     }
 }

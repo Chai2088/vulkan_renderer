@@ -22,9 +22,12 @@ namespace VulkanRenderer
 
 		void SetViewport(float x, float y, VkExtent2D extent, float minDepth, float maxDepth, uint32_t first, uint32_t count);
 		void SetScissor(VkOffset2D offset, VkExtent2D extent, uint32_t first, uint32_t count);
-
-		void DrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t vertexOffset, uint32_t firstInstance);
+		void SetDepthBias(float depthBiasConstant, float depthSlope);
+			
 		
+		
+		void DrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t vertexOffset, uint32_t firstInstance);
+	
 		VkCommandBuffer& GetCommandBuffer();
 	private:
 		VkCommandBuffer mCommandBuffer;

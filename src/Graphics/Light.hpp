@@ -25,6 +25,8 @@ namespace VulkanRenderer
 		void Shutdown() override;
 		void Edit() override;
 
+		glm::vec3 GetPosition();
+
 		//Serialization
 		void StreamRead(const nlohmann::json& j) override;
 		void StreamWrite(nlohmann::json& j) const override;

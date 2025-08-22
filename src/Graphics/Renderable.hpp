@@ -24,5 +24,6 @@ namespace VulkanRenderer
 		Model* mModel;
 		bool mIsVisible;
 		int32_t mTexIndex;
+		glm::vec3 mColor; //For debug purposes
 	};
 }

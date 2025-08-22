@@ -48,6 +48,7 @@ namespace VulkanRenderer
 		Renderer& GetRenderer();
 		ResourceManager& GetResourceManager();
 		Camera& GetCamera();
+		Editor& GetEditor();
 	protected:
 		//Singleton
 		Engine() {};

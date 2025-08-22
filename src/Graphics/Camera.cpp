@@ -22,8 +22,11 @@ namespace VulkanRenderer
 {
 	Camera::Camera()
 	{
-		mPos = glm::vec3(0.0f, 0.0f, 3.0f);
-		mFront = glm::vec3(0.0f, 0.0f, -1.0f);
+		//mPos = glm::vec3(0.0f, 0.0f, 3.0f);
+		
+		//Test the camera looking from the light
+		mPos = glm::vec3(300.0f, 300.0f, 3.0f);
+		mFront = glm::vec3(1.0f, -1.0f, 1.0f);
 		mUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 		yaw = -90.0f;

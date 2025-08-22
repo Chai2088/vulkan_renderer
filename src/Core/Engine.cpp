@@ -110,4 +110,8 @@ namespace VulkanRenderer
 	{
 		return mCamera;
 	}
+	Editor& Engine::GetEditor()
+	{
+		return mEditor;
+	}
 }
